@@ -1,4 +1,4 @@
-from tqdm import tqdm
+from tqdm.auto import tqdm
 import torch
 
 # 모델을 학습시키는 함수 작성
@@ -10,7 +10,6 @@ def train_model(net, dataloaders_dict, criterion, optimizer, num_epochs):
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch + 1, num_epochs))
         print("------------------------------")
-
 
         net.to(device)
 

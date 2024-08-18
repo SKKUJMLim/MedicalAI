@@ -14,13 +14,7 @@ import torchvision
 from torchvision import models, transforms
 
 
-#난수 시드 설정
-torch.manual_seed(1234)
-np.random.seed(1234)
-random.seed(1234)
-
-
-
+rootpath = 'dataset'
 
 def make_datapath_list(rootpath):
 
@@ -84,13 +78,13 @@ class ImageTransform():
                 transforms.RandomResizedCrop(resize, scale=(0.5, 1.0)),  # 데이터 확장 1
                 transforms.RandomHorizontalFlip(),  # 데이터 확장 2
                 transforms.ToTensor(),  # 텐서로의 변환
-                transforms.Normalize(mean, std)  # 색상정보의 표준화
+                #transforms.Normalize(mean, std)  # 색상정보의 표준화
             ]),
             'val': transforms.Compose([
                 transforms.Resize(resize),  # 리사이즈
                 transforms.CenterCrop(resize),  # 이미지 중앙을 Resize x Resize로 자른다.
                 transforms.ToTensor(),  # 텐서로의 변환
-                transforms.Normalize(mean, std)  # 색상정보의 표준화
+                # transforms.Normalize(mean, std)  # 색상정보의 표준화
             ])
         }
 
@@ -131,4 +125,78 @@ class MedicalDataset(data.Dataset):
 
         return img_transformed, label
 
+def get_dataloader(resize, mean, std, batch_size):
 
+    preap_surgery, preap_no_surgery, prelat_surgery, prelat_no_surgery = make_datapath_list(rootpath=rootpath)
+
+    # 1. 정면 데이터셋을 train과 test로 분리한다.
+    preap_surgery_trainA, preap_surgery_test, preap_no_surgery_trainA, preap_no_surgery_test = split_dataset(
+        preap_surgery, preap_no_surgery, split_ratio=0.8)
+
+    # 2. 측면 데이터셋을 train과 test로 분리한다.
+    prelat_surgery_trainA, prelat_surgery_test, prelat_no_surgery_trainA, prelat_no_surgery_test = split_dataset(
+        prelat_surgery, prelat_no_surgery, split_ratio=0.8)
+
+    # 3. 정면 train dataset 중에 validation dataset을 확보한다.
+    preap_surgery_train, preap_surgery_val, preap_no_surgery_train, preap_no_surgery_val = split_dataset(
+        preap_surgery_trainA, preap_no_surgery_trainA, split_ratio=0.8)
+
+    # 4. 측면 train dataset 중에 validation dataset을 확보한다.
+    prelat_surgery_train, prelat_surgery_val, prelat_no_surgery_train, prelat_no_surgery_val = split_dataset(
+        prelat_surgery_trainA, prelat_no_surgery_trainA, split_ratio=0.8)
+
+    # 5. 훈련데이터와 테스트 데이터를 불러온다.
+    train_list_preap = preap_surgery_train + preap_no_surgery_train
+    train_list_prelat = prelat_surgery_train + prelat_no_surgery_train
+
+    val_list_preap = preap_surgery_val + preap_no_surgery_val
+    val_list_prelat = prelat_surgery_val + prelat_no_surgery_val
+
+    test_list_preap = preap_surgery_test + preap_no_surgery_test
+    test_list_prelat = prelat_surgery_test + prelat_no_surgery_test
+
+    # 1. 정면 사진의 훈련데이터셋 구성
+    preap_train_dataset = MedicalDataset(img_list=train_list_preap, transform=ImageTransform(resize, mean, std),
+                                         phase='train')
+
+    # 1.1 정면 사진의 Val 데이터셋 구성
+    preap_val_dataset = MedicalDataset(img_list=val_list_preap, transform=ImageTransform(resize, mean, std),
+                                       phase='val')
+
+    # 1.2 정면 사진의 Test 데이터셋 구성
+    preap_test_dataset = MedicalDataset(img_list=test_list_preap, transform=ImageTransform(resize, mean, std),
+                                        phase='val')
+
+    # 2. 측면 사진의 훈련데이터셋 구성
+    prelat_train_dataset = MedicalDataset(img_list=train_list_prelat, transform=ImageTransform(resize, mean, std),
+                                          phase='train')
+
+    # 2.2 측면 사진의 Val 데이터셋 구성
+    prelat_val_dataset = MedicalDataset(img_list=val_list_prelat, transform=ImageTransform(resize, mean, std),
+                                        phase='val')
+
+    # 2.2 측면 사진의 Test 데이터셋 구성
+    prelat_test_dataset = MedicalDataset(img_list=test_list_prelat, transform=ImageTransform(resize, mean, std),
+                                         phase='val')
+
+
+    # 1. 정면 사진의 데이터로더 구성
+    preap_train_dataloader = torch.utils.data.DataLoader(preap_train_dataset, batch_size=batch_size, shuffle=False)
+    preap_val_dataloader = torch.utils.data.DataLoader(preap_val_dataset, batch_size=batch_size, shuffle=False)
+    preap_test_dataloader = torch.utils.data.DataLoader(preap_test_dataset, batch_size=batch_size, shuffle=False)
+
+    # 2. 측면 사진의 데이터로더 구성
+    prelat_train_dataloader = torch.utils.data.DataLoader(prelat_train_dataset, batch_size=batch_size, shuffle=False)
+    prelat_val_dataloader = torch.utils.data.DataLoader(prelat_train_dataset, batch_size=batch_size, shuffle=False)
+    prelat_test_dataloader = torch.utils.data.DataLoader(prelat_test_dataset, batch_size=batch_size, shuffle=False)
+
+    train_data = {"preap": preap_train_dataloader, "prelat": prelat_train_dataloader}
+    val_data = {"preap": preap_val_dataloader, "prelat": prelat_val_dataloader}
+    test_data = {"preap": preap_test_dataloader, "prelat": prelat_test_dataloader}
+
+    # 3. 사전형 변수에 정리
+    # preap_dataloaders_dict = {"train": preap_train_dataloader, "val": preap_val_dataloader}
+    # prelat_dataloaders_dict = {"train": prelat_train_dataloader, "val": prelat_val_dataloader}
+    train_loaders_dict = {"train": train_data, "val": val_data}
+
+    return train_loaders_dict, test_data

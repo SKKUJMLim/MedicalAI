@@ -65,7 +65,7 @@ class Bottleneck(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, block, num_blocks, num_classes=100):
+    def __init__(self, block, num_blocks, num_classes=2):
         super(ResNet, self).__init__()
         self.in_planes = 64
 
@@ -93,7 +93,9 @@ class ResNet(nn.Module):
         out = self.layer4(out)
         out = F.avg_pool2d(out, 4)
         out = out.view(out.size(0), -1)
-        out = self.linear(out)
+
+        print("out shape == ", out.shape)
+        # out = self.linear(out) # 결합을 위해 latent vector만 출력
         return out
 
 
