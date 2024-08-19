@@ -30,8 +30,8 @@ if __name__ == '__main__':
 
 
     print('==> Building model..')
-    preap_net = resnet.ResNet50()
-    prelat_net= resnet.ResNet50()
+    preap_net = resnet.ResNet18()
+    prelat_net= resnet.ResNet18()
     combined_model = combinedModel.CombinedResNet50(preap_net, prelat_net, num_classes)
     combined_model.to(device=device)
 

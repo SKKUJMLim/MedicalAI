@@ -9,7 +9,8 @@ class CombinedResNet50(nn.Module):
 
         # 두 모델의 출력 크기를 합친 크기의 FC 레이어
         # self.fc = nn.Linear(512 * 8, num_classes)
-        self.fc = nn.Linear(200704, num_classes)
+        # self.fc = nn.Linear(200704, num_classes)
+        self.fc = nn.Linear(50176, num_classes)
 
     def forward(self, x1, x2):
             # 모델 각각에 이미지를 입력하여 latent vector 추출
