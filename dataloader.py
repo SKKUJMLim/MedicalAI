@@ -99,31 +99,40 @@ class ImageTransform():
 
 class MedicalDataset(data.Dataset):
 
-    def __init__(self, img_list, phase, transform):
-        self.img_list = img_list
+    def __init__(self, preap_img_list, prelat_img_list, phase, transform):
+        self.preap_img_list = preap_img_list
+        self.prelat_img_list = prelat_img_list
+
         self.phase = phase
         self.transform = transform
 
     def __len__(self):
         """이미지 개수를 반환"""
-        return len(self.img_list)
+        return len(self.preap_img_list)
 
     def __getitem__(self, index):
         """전처리한 이미지의 텐서 형식의 데이터와 라벨 취득 """
 
         # 1. index번째 이미지 로드
-        image_file_path = self.img_list[index]
-        img = Image.open(image_file_path)   # [높이][넓이][색 RGB]
+        preap_file_path = self.preap_img_list[index]
+        prelat_file_path = self.prelat_img_list[index]
+        preap_img = Image.open(preap_file_path)   # [높이][넓이][색 RGB]
+        prelat_img = Image.open(prelat_file_path)  # [높이][넓이][색 RGB]
+
+        ## 파일 명 Check
+        # print("preap_file_path == ", preap_file_path)
+        # print("prelat_file_path == ", prelat_file_path)
 
         # 2. 이미지 전처리
-        img_transformed = self.transform(img, self.phase)  # torch.Size([3, 224, 224])
+        preap_img_transformed = self.transform(preap_img, self.phase)
+        prelat_img_transformed = self.transform(prelat_img, self.phase)
 
         # 3. Label 정보 추출
         label = 0
-        if '1pre' in image_file_path:
+        if '1pre' in preap_file_path:
             label = 1
 
-        return img_transformed, label
+        return preap_img_transformed, prelat_img_transformed, label
 
 def get_dataloader(resize, mean, std, batch_size):
 
@@ -155,48 +164,33 @@ def get_dataloader(resize, mean, std, batch_size):
     test_list_preap = preap_surgery_test + preap_no_surgery_test
     test_list_prelat = prelat_surgery_test + prelat_no_surgery_test
 
-    # 1. 정면 사진의 훈련데이터셋 구성
-    preap_train_dataset = MedicalDataset(img_list=train_list_preap, transform=ImageTransform(resize, mean, std),
+    # print("훈련데이터 개수 == ", len(train_list_preap + train_list_prelat))
+    # print("검증데이터 개수 == ", len(val_list_preap + val_list_prelat))
+    # print("테스트데이터 개수 ==", len(test_list_preap + test_list_prelat))
+
+
+    train_dataset = MedicalDataset(preap_img_list=train_list_preap,
+                                         prelat_img_list=train_list_prelat,
+                                         transform=ImageTransform(resize, mean, std),
                                          phase='train')
 
-    # 1.1 정면 사진의 Val 데이터셋 구성
-    preap_val_dataset = MedicalDataset(img_list=val_list_preap, transform=ImageTransform(resize, mean, std),
-                                       phase='val')
+    val_dataset = MedicalDataset(preap_img_list=val_list_preap,
+                                   prelat_img_list=val_list_prelat,
+                                   transform=ImageTransform(resize, mean, std),
+                                   phase='val')
 
-    # 1.2 정면 사진의 Test 데이터셋 구성
-    preap_test_dataset = MedicalDataset(img_list=test_list_preap, transform=ImageTransform(resize, mean, std),
-                                        phase='val')
-
-    # 2. 측면 사진의 훈련데이터셋 구성
-    prelat_train_dataset = MedicalDataset(img_list=train_list_prelat, transform=ImageTransform(resize, mean, std),
-                                          phase='train')
-
-    # 2.2 측면 사진의 Val 데이터셋 구성
-    prelat_val_dataset = MedicalDataset(img_list=val_list_prelat, transform=ImageTransform(resize, mean, std),
-                                        phase='val')
-
-    # 2.2 측면 사진의 Test 데이터셋 구성
-    prelat_test_dataset = MedicalDataset(img_list=test_list_prelat, transform=ImageTransform(resize, mean, std),
-                                         phase='val')
-
+    test_dataset = MedicalDataset(preap_img_list=test_list_preap,
+                                 prelat_img_list=test_list_prelat,
+                                 transform=ImageTransform(resize, mean, std),
+                                 phase='val')
 
     # 1. 정면 사진의 데이터로더 구성
-    preap_train_dataloader = torch.utils.data.DataLoader(preap_train_dataset, batch_size=batch_size, shuffle=False)
-    preap_val_dataloader = torch.utils.data.DataLoader(preap_val_dataset, batch_size=batch_size, shuffle=False)
-    preap_test_dataloader = torch.utils.data.DataLoader(preap_test_dataset, batch_size=batch_size, shuffle=False)
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
+    test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
-    # 2. 측면 사진의 데이터로더 구성
-    prelat_train_dataloader = torch.utils.data.DataLoader(prelat_train_dataset, batch_size=batch_size, shuffle=False)
-    prelat_val_dataloader = torch.utils.data.DataLoader(prelat_train_dataset, batch_size=batch_size, shuffle=False)
-    prelat_test_dataloader = torch.utils.data.DataLoader(prelat_test_dataset, batch_size=batch_size, shuffle=False)
 
-    train_data = {"preap": preap_train_dataloader, "prelat": prelat_train_dataloader}
-    val_data = {"preap": preap_val_dataloader, "prelat": prelat_val_dataloader}
-    test_data = {"preap": preap_test_dataloader, "prelat": prelat_test_dataloader}
+    # 2. 사전형 변수에 정리
+    dataloaders_dict = {"train": train_dataloader, "val": val_dataloader}
 
-    # 3. 사전형 변수에 정리
-    # preap_dataloaders_dict = {"train": preap_train_dataloader, "val": preap_val_dataloader}
-    # prelat_dataloaders_dict = {"train": prelat_train_dataloader, "val": prelat_val_dataloader}
-    train_loaders_dict = {"train": train_data, "val": val_data}
-
-    return train_loaders_dict, test_data
+    return dataloaders_dict, test_dataloader

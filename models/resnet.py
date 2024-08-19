@@ -94,7 +94,6 @@ class ResNet(nn.Module):
         out = F.avg_pool2d(out, 4)
         out = out.view(out.size(0), -1)
 
-        print("out shape == ", out.shape)
         # out = self.linear(out) # 결합을 위해 latent vector만 출력
         return out
 

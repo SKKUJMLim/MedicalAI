@@ -16,6 +16,8 @@ class CombinedResNet50(nn.Module):
             latent_vector1 = self.model1(x1)
             latent_vector2 = self.model2(x2)
 
+            print("latent_vector1 == ", latent_vector1.shape)
+
             # 두 latent vector를 concat
             combined = torch.cat((latent_vector1, latent_vector2), dim=1)
 
