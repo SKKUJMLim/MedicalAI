@@ -164,11 +164,6 @@ def get_dataloader(resize, mean, std, batch_size):
     test_list_preap = preap_surgery_test + preap_no_surgery_test
     test_list_prelat = prelat_surgery_test + prelat_no_surgery_test
 
-    # print("훈련데이터 개수 == ", len(train_list_preap + train_list_prelat))
-    # print("검증데이터 개수 == ", len(val_list_preap + val_list_prelat))
-    # print("테스트데이터 개수 ==", len(test_list_preap + test_list_prelat))
-
-
     train_dataset = MedicalDataset(preap_img_list=train_list_preap,
                                          prelat_img_list=train_list_prelat,
                                          transform=ImageTransform(resize, mean, std),
@@ -184,11 +179,11 @@ def get_dataloader(resize, mean, std, batch_size):
                                  transform=ImageTransform(resize, mean, std),
                                  phase='val')
 
+
     # 1. 정면 사진의 데이터로더 구성
     train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
     test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
-
 
     # 2. 사전형 변수에 정리
     dataloaders_dict = {"train": train_dataloader, "val": val_dataloader}
