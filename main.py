@@ -33,7 +33,7 @@ if __name__ == '__main__':
     resnet.test()
     preap_net = resnet.ResNet18()
     prelat_net= resnet.ResNet18()
-    combined_model = combinedModel.CombinedResNet50(preap_net, prelat_net, num_classes)
+    combined_model = combinedModel.CombinedResNet18(preap_net, prelat_net, num_classes)
 
     # vgg.test()
     # preap_net = vgg.VGG('VGG19')
