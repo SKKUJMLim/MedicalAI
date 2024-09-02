@@ -14,8 +14,8 @@ if __name__ == '__main__':
     # 난수 시드 고정
     torch.manual_seed(42)
 
-    resize = 224
-    # resize = 32
+    # resize = 224
+    resize = 32
     mean = (0.485, 0.456, 0.406)
     std = (0.229, 0.224, 0.225)
     num_classes = 2
@@ -30,9 +30,16 @@ if __name__ == '__main__':
 
 
     print('==> Building model..')
+    resnet.test()
     preap_net = resnet.ResNet18()
     prelat_net= resnet.ResNet18()
     combined_model = combinedModel.CombinedResNet50(preap_net, prelat_net, num_classes)
+
+    # vgg.test()
+    # preap_net = vgg.VGG('VGG19')
+    # prelat_net = vgg.VGG('VGG19')
+    # combined_model = combinedModel.CombinedVGG(preap_net, prelat_net, num_classes)
+
     combined_model.to(device=device)
 
     # 최적화 기법 설정
