@@ -3,7 +3,7 @@ import torch.nn as nn
 
 class CombinedResNet18(nn.Module):
     def __init__(self, model1, model2, num_classes):
-        super(CombinedResNet50, self).__init__()
+        super(CombinedResNet18, self).__init__()
         self.model1 = model1
         self.model2 = model2
 
