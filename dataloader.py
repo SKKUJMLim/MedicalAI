@@ -75,6 +75,7 @@ class ImageTransform():
     def __init__(self, resize, mean, std):
         self.data_transform = {
             'train': transforms.Compose([
+                transforms.Resize(resize),
                 transforms.RandomResizedCrop(resize, scale=(0.5, 1.0)),  # 데이터 확장 1
                 transforms.RandomHorizontalFlip(),  # 데이터 확장 2
                 transforms.ToTensor(),  # 텐서로의 변환
@@ -82,7 +83,6 @@ class ImageTransform():
             ]),
             'val': transforms.Compose([
                 transforms.Resize(resize),  # 리사이즈
-                transforms.CenterCrop(resize),  # 이미지 중앙을 Resize x Resize로 자른다.
                 transforms.ToTensor(),  # 텐서로의 변환
                 # transforms.Normalize(mean, std)  # 색상정보의 표준화
             ])
