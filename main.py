@@ -118,7 +118,7 @@ if __name__ == '__main__':
     total = 0
 
     with torch.no_grad():
-        for preap_inputs, prelat_inputs, labels in test_dataloader:
+        for preap_inputs, prelat_inputs, clinic_inputs, labels in test_dataloader:
             # GPU가 사용가능하면 GPU에 데이터 전송
             preap_inputs = preap_inputs.to(device)
             prelat_inputs = prelat_inputs.to(device)
