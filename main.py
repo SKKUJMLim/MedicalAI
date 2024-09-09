@@ -30,8 +30,8 @@ if __name__ == '__main__':
 
     print('==> Building model..')
     # resnet.test()
-    preap_net = resnet.ResNet18()
-    prelat_net= resnet.ResNet18()
+    preap_net = resnet.ResNet34()
+    prelat_net= resnet.ResNet34()
     clinicinfo_net = clinicinfo.MLP(input_size=2, hidden_size=2, output_size=1)
     combined_model = combinedModel.CombinedResNet18(preap_net, prelat_net, clinicinfo_net, num_classes)
 
@@ -44,8 +44,8 @@ if __name__ == '__main__':
 
     # 최적화 기법 설정
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(combined_model.parameters(), lr=learning_rate)
-    # optimizer = optim.Adam(combined_model.parameters(), lr=learning_rate)
+    # optimizer = optim.SGD(combined_model.parameters(), lr=learning_rate)
+    optimizer = optim.Adam(combined_model.parameters(), lr=learning_rate)
 
     # optimizer = optim.Adam([
     #     {'params': preap_net.parameters(), 'lr':learning_rate},
