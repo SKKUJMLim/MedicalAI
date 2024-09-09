@@ -12,9 +12,12 @@ import torch.optim as optim
 import torch.utils.data as data
 import torchvision
 from torchvision import models, transforms
+import pandas as pd
+import chardet
 
 
 rootpath = 'dataset'
+clinic_csv = os.path.join(rootpath, 'DLRF_v1.72.xlsx')
 
 def make_datapath_list(rootpath):
 
@@ -99,12 +102,19 @@ class ImageTransform():
 
 class MedicalDataset(data.Dataset):
 
-    def __init__(self, preap_img_list, prelat_img_list, phase, transform):
+    def __init__(self, preap_img_list, prelat_img_list, phase, transform, clinic_csv):
         self.preap_img_list = preap_img_list
         self.prelat_img_list = prelat_img_list
-
         self.phase = phase
         self.transform = transform
+        self.clinic_info = pd.read_excel(clinic_csv, usecols=['ID',
+                                                              'Age\n(진료일기준)',
+                                                              'BMI',
+                                                              'Acceptability',
+                                                              'Presence of Subsequent \nor concomittent fracture',
+                                                              'AO OTA Classification'])
+        # # 데이터 확인
+        # print(self.clinic_info.head())
 
     def __len__(self):
         """이미지 개수를 반환"""
@@ -165,19 +175,22 @@ def get_dataloader(resize, mean, std, batch_size):
     test_list_prelat = prelat_surgery_test + prelat_no_surgery_test
 
     train_dataset = MedicalDataset(preap_img_list=train_list_preap,
-                                         prelat_img_list=train_list_prelat,
-                                         transform=ImageTransform(resize, mean, std),
-                                         phase='train')
+                                   prelat_img_list=train_list_prelat,
+                                   transform=ImageTransform(resize, mean, std),
+                                   phase='train',
+                                   clinic_csv=clinic_csv)
 
     val_dataset = MedicalDataset(preap_img_list=val_list_preap,
-                                   prelat_img_list=val_list_prelat,
-                                   transform=ImageTransform(resize, mean, std),
-                                   phase='val')
+                                 prelat_img_list=val_list_prelat,
+                                 transform=ImageTransform(resize, mean, std),
+                                 phase='val',
+                                 clinic_csv=clinic_csv)
 
     test_dataset = MedicalDataset(preap_img_list=test_list_preap,
                                  prelat_img_list=test_list_prelat,
                                  transform=ImageTransform(resize, mean, std),
-                                 phase='val')
+                                 phase='val',
+                                 clinic_csv=clinic_csv)
 
 
     # 1. 정면 사진의 데이터로더 구성
