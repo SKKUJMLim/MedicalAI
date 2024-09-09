@@ -120,9 +120,12 @@ class MedicalDataset(data.Dataset):
         scaler = MinMaxScaler() # Min-Max Scaler 사용
         self.clinic_info['Age\n(진료일기준)'] = scaler.fit_transform(column.values.reshape(-1,1))
 
-        # 2. AO OTA Classification를 수치화한다.
+        # 2. AO OTA Classification를 0~1 사이의 값으로 수치화한다.
         label_encoder = LabelEncoder()
+        scaler = MinMaxScaler()
         self.clinic_info['AO OTA Classification'] = label_encoder.fit_transform(self.clinic_info['AO OTA Classification']) # 텍스트 컬럼을 정수로 변환
+        self.clinic_info['AO OTA Classification'] = scaler.fit_transform(self.clinic_info['AO OTA Classification'].values.reshape(-1,1))  # 텍스트 컬럼을 정수로 변환
+
 
 
         # # 데이터 확인
@@ -166,6 +169,7 @@ class MedicalDataset(data.Dataset):
 
         clinic_info = [age, ota]
         clinic_info = torch.tensor(clinic_info, dtype=torch.float32)
+
         return preap_img_transformed, prelat_img_transformed, clinic_info, label
 
 def get_dataloader(resize, mean, std, batch_size):
