@@ -2,10 +2,11 @@ import torch
 import torch.nn as nn
 
 class CombinedResNet18(nn.Module):
-    def __init__(self, model1, model2, num_classes):
+    def __init__(self, model1, model2, model3 ,num_classes):
         super(CombinedResNet18, self).__init__()
         self.model1 = model1
         self.model2 = model2
+        self.model3 = model3
 
         # 두 모델의 출력 크기를 합친 크기의 FC 레이어
         self.fc = nn.Linear(512 * 2, num_classes)
@@ -16,6 +17,7 @@ class CombinedResNet18(nn.Module):
             # 모델 각각에 이미지를 입력하여 latent vector 추출
             latent_vector1 = self.model1(x1)
             latent_vector2 = self.model2(x2)
+
 
             # 두 latent vector를 concat
             combined = torch.cat((latent_vector1, latent_vector2), dim=1)

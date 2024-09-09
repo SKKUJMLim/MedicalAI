@@ -33,8 +33,8 @@ if __name__ == '__main__':
     resnet.test()
     preap_net = resnet.ResNet18()
     prelat_net= resnet.ResNet18()
-    clinicinfo_net = clinicinfo.MLP(input_size=3, hidden_size=3, output_size=3)
-    combined_model = combinedModel.CombinedResNet18(preap_net, prelat_net, num_classes)
+    clinicinfo_net = clinicinfo.MLP(input_size=3, hidden_size=2, output_size=1)
+    combined_model = combinedModel.CombinedResNet18(preap_net, prelat_net, clinicinfo_net, num_classes)
 
     # vgg.test()
     # preap_net = vgg.VGG('VGG19')
@@ -66,11 +66,12 @@ if __name__ == '__main__':
 
         trainloader =  train_loaders_dict['train']
 
-        for preap_inputs, prelat_inputs, labels in trainloader:
+        for preap_inputs, prelat_inputs, clinic_inputs, labels in trainloader:
 
             # GPU가 사용가능하면 GPU에 데이터 전송
             preap_inputs = preap_inputs.to(device)
             prelat_inputs = prelat_inputs.to(device)
+            clinic_inputs = clinic_inputs.to(device)
             labels = labels.to(device)
 
             # 옵티마이저 초기화
@@ -92,9 +93,10 @@ if __name__ == '__main__':
         validationloader = train_loaders_dict['val']
 
         with torch.no_grad():
-            for preap_inputs, prelat_inputs, labels in validationloader:
+            for preap_inputs, prelat_inputs, clinic_inputs, labels in validationloader:
                 preap_inputs = preap_inputs.to(device)
                 prelat_inputs = prelat_inputs.to(device)
+                clinic_inputs = clinic_inputs.to(device)
                 labels = labels.to(device)
                 outputs = combined_model(preap_inputs, prelat_inputs)
                 _, predicted = torch.max(outputs.data, 1)

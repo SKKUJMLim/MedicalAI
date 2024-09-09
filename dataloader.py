@@ -165,8 +165,9 @@ class MedicalDataset(data.Dataset):
         ota = clinic_info_byID['AO OTA Classification'].iloc[0]
 
         clinic_info = [age, bmi, ota]
+        clinic_info = torch.tensor(clinic_info)
 
-        return preap_img_transformed, prelat_img_transformed, label
+        return preap_img_transformed, prelat_img_transformed, clinic_info, label
 
 def get_dataloader(resize, mean, std, batch_size):
 
