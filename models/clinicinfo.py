@@ -22,12 +22,15 @@ class MLP(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super(MLP, self).__init__()
         self.fc1 = nn.Linear(input_size, hidden_size)  # 첫 번째 fully connected layer
+        self.relu = nn.ReLU()
         self.fc2 = nn.Linear(hidden_size, output_size)  # 두 번째 fully connected layer
 
     def forward(self, x):
-        x = F.relu(self.fc1(x))  # ReLU 활성화 함수 적용
-        x = self.fc2(x)  # 출력층 (활성화 함수는 여기서 생략)
-        return x
+        out = self.fc1(x)
+        out = self.relu(out)
+        out = self.fc2(out)
+
+        return out
 
 
 class LSTMModel(nn.Module):

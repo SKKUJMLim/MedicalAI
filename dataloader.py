@@ -164,9 +164,8 @@ class MedicalDataset(data.Dataset):
         subsequent = clinic_info_byID['Presence of Subsequent \nor concomittent fracture'].iloc[0]
         ota = clinic_info_byID['AO OTA Classification'].iloc[0]
 
-        clinic_info = [age, bmi, ota]
-        clinic_info = torch.tensor(clinic_info)
-
+        clinic_info = [age, ota]
+        clinic_info = torch.tensor(clinic_info, dtype=torch.float32)
         return preap_img_transformed, prelat_img_transformed, clinic_info, label
 
 def get_dataloader(resize, mean, std, batch_size):

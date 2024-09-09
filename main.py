@@ -28,12 +28,11 @@ if __name__ == '__main__':
 
     train_loaders_dict, test_dataloader = get_dataloader(resize, mean, std, batch_size)
 
-
     print('==> Building model..')
-    resnet.test()
+    # resnet.test()
     preap_net = resnet.ResNet18()
     prelat_net= resnet.ResNet18()
-    clinicinfo_net = clinicinfo.MLP(input_size=3, hidden_size=2, output_size=1)
+    clinicinfo_net = clinicinfo.MLP(input_size=2, hidden_size=2, output_size=1)
     combined_model = combinedModel.CombinedResNet18(preap_net, prelat_net, clinicinfo_net, num_classes)
 
     # vgg.test()
@@ -76,15 +75,14 @@ if __name__ == '__main__':
 
             # 옵티마이저 초기화
             optimizer.zero_grad()
-
-            outputs = combined_model(preap_inputs, prelat_inputs)
+            outputs = combined_model(preap_inputs, prelat_inputs, clinic_inputs)
             loss = criterion(outputs, labels)
+
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
 
         print(f'Epoch [{epoch + 1}/{num_epochs}] Loss: {running_loss / len(trainloader)}')
-
 
         # Validation
         combined_model.eval()
@@ -98,7 +96,7 @@ if __name__ == '__main__':
                 prelat_inputs = prelat_inputs.to(device)
                 clinic_inputs = clinic_inputs.to(device)
                 labels = labels.to(device)
-                outputs = combined_model(preap_inputs, prelat_inputs)
+                outputs = combined_model(preap_inputs, prelat_inputs, clinic_inputs)
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
@@ -124,9 +122,10 @@ if __name__ == '__main__':
             # GPU가 사용가능하면 GPU에 데이터 전송
             preap_inputs = preap_inputs.to(device)
             prelat_inputs = prelat_inputs.to(device)
+            clinic_inputs = clinic_inputs.to(device)
             labels = labels.to(device)
             combined_model.to(device)
-            outputs = combined_model(preap_inputs, prelat_inputs)
+            outputs = combined_model(preap_inputs, prelat_inputs, clinic_inputs)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
