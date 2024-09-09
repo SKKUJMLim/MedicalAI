@@ -13,7 +13,7 @@ import torch.utils.data as data
 import torchvision
 from torchvision import models, transforms
 import pandas as pd
-import chardet
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, LabelEncoder
 
 
 rootpath = 'dataset'
@@ -113,6 +113,18 @@ class MedicalDataset(data.Dataset):
                                                               'Acceptability',
                                                               'Presence of Subsequent \nor concomittent fracture',
                                                               'AO OTA Classification'])
+
+        # 1. 나이를 정규화한다
+        column = self.clinic_info['Age\n(진료일기준)']
+        # scaler = StandardScaler() # Z-score Scaler 사용
+        scaler = MinMaxScaler() # Min-Max Scaler 사용
+        self.clinic_info['Age\n(진료일기준)'] = scaler.fit_transform(column.values.reshape(-1,1))
+
+        # 2. AO OTA Classification를 수치화한다.
+        label_encoder = LabelEncoder()
+        self.clinic_info['AO OTA Classification'] = label_encoder.fit_transform(self.clinic_info['AO OTA Classification']) # 텍스트 컬럼을 정수로 변환
+
+
         # # 데이터 확인
         # print(self.clinic_info.head())
 
@@ -128,7 +140,6 @@ class MedicalDataset(data.Dataset):
         prelat_file_path = self.prelat_img_list[index]
         preap_img = Image.open(preap_file_path)   # [높이][넓이][색 RGB]
         prelat_img = Image.open(prelat_file_path)  # [높이][넓이][색 RGB]
-
         ## 파일 명 Check
         # print("preap_file_path == ", preap_file_path)
         # print("prelat_file_path == ", prelat_file_path)
@@ -141,6 +152,19 @@ class MedicalDataset(data.Dataset):
         label = 0
         if '1pre' in preap_file_path:
             label = 1
+
+        # 4. 환자정보 추출 (Text)
+        filename = preap_file_path.split('\\')[2]
+        id = 'DLRF-' + filename.split('_')[1]
+        clinic_info_byID = self.clinic_info[self.clinic_info['ID']==id]
+        # print(clinic_info_byID.iloc[0].values)#
+        age = clinic_info_byID['Age\n(진료일기준)'].iloc[0]
+        bmi = clinic_info_byID['BMI'].iloc[0]
+        acceptability = clinic_info_byID['Acceptability'].iloc[0]
+        subsequent = clinic_info_byID['Presence of Subsequent \nor concomittent fracture'].iloc[0]
+        ota = clinic_info_byID['AO OTA Classification'].iloc[0]
+
+        clinic_info = [age, bmi, ota]
 
         return preap_img_transformed, prelat_img_transformed, label
 

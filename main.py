@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from tqdm.auto import tqdm
-from models import resnet, vgg, combinedModel
+from models import resnet, vgg, combinedModel, clinicinfo
 
 
 if __name__ == '__main__':
@@ -33,6 +33,7 @@ if __name__ == '__main__':
     resnet.test()
     preap_net = resnet.ResNet18()
     prelat_net= resnet.ResNet18()
+    clinicinfo_net = clinicinfo.MLP(input_size=3, hidden_size=3, output_size=3)
     combined_model = combinedModel.CombinedResNet18(preap_net, prelat_net, num_classes)
 
     # vgg.test()
