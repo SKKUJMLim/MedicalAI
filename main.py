@@ -5,7 +5,6 @@ import torch.optim as optim
 from tqdm.auto import tqdm
 from models import resnet, vgg, combinedModel, clinicinfo
 
-
 if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -30,8 +29,8 @@ if __name__ == '__main__':
 
     print('==> Building model..')
     # resnet.test()
-    preap_net = resnet.ResNet34()
-    prelat_net= resnet.ResNet34()
+    preap_net = resnet.resnet18_cbam(pretrained=False)
+    prelat_net= resnet.resnet18_cbam(pretrained=False)
     clinicinfo_net = clinicinfo.MLP(input_size=2, hidden_size=2, output_size=1)
     combined_model = combinedModel.CombinedResNet18(preap_net, prelat_net, clinicinfo_net, num_classes)
 

@@ -17,7 +17,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler, LabelEncoder
 
 
 rootpath = 'dataset'
-clinic_csv = os.path.join(rootpath, 'DLRF_v1.72.xlsx')
+clinic_csv = os.path.join(rootpath, 'DLRF_v1.79_Rev.xlsx')
 
 def make_datapath_list(rootpath):
 
@@ -107,12 +107,14 @@ class MedicalDataset(data.Dataset):
         self.prelat_img_list = prelat_img_list
         self.phase = phase
         self.transform = transform
-        self.clinic_info = pd.read_excel(clinic_csv, usecols=['ID',
-                                                              'Age\n(진료일기준)',
-                                                              'BMI',
-                                                              'Acceptability',
-                                                              'Presence of Subsequent \nor concomittent fracture',
-                                                              'AO OTA Classification'])
+        self.clinic_info = pd.read_excel(clinic_csv
+                                         ,usecols=['ID',
+                                                  'Age\n(진료일기준)',
+                                                  'BMI',
+                                                  'Acceptability',
+                                                  'Presence of Subsequent \nor concomittent fracture',
+                                                  'AO OTA Classification']
+                                         ,header=2)
 
         # 1. 나이를 정규화한다
         column = self.clinic_info['Age\n(진료일기준)']
@@ -125,8 +127,6 @@ class MedicalDataset(data.Dataset):
         scaler = MinMaxScaler()
         self.clinic_info['AO OTA Classification'] = label_encoder.fit_transform(self.clinic_info['AO OTA Classification']) # 텍스트 컬럼을 정수로 변환
         self.clinic_info['AO OTA Classification'] = scaler.fit_transform(self.clinic_info['AO OTA Classification'].values.reshape(-1,1))  # 텍스트 컬럼을 정수로 변환
-
-
 
         # # 데이터 확인
         # print(self.clinic_info.head())
