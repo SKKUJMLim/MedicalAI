@@ -140,7 +140,7 @@ class Bottleneck(nn.Module):
 
 class ResNet(nn.Module):
 
-    def __init__(self, block, layers, num_classes=2):
+    def __init__(self, block, layers, num_classes=1000):
         self.inplanes = 64
         super(ResNet, self).__init__()
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
@@ -198,7 +198,7 @@ class ResNet(nn.Module):
         return x
 
 
-def resnet18_cbam(pretrained=False, **kwargs):
+def resnet18(pretrained=False, **kwargs):
     """Constructs a ResNet-18 model.
 
     Args:
@@ -213,7 +213,7 @@ def resnet18_cbam(pretrained=False, **kwargs):
     return model
 
 
-def resnet34_cbam(pretrained=False, **kwargs):
+def resnet34(pretrained=False, **kwargs):
     """Constructs a ResNet-34 model.
 
     Args:
@@ -228,7 +228,7 @@ def resnet34_cbam(pretrained=False, **kwargs):
     return model
 
 
-def resnet50_cbam(pretrained=False, **kwargs):
+def resnet50(pretrained=False, **kwargs):
     """Constructs a ResNet-50 model.
 
     Args:
@@ -243,7 +243,7 @@ def resnet50_cbam(pretrained=False, **kwargs):
     return model
 
 
-def resnet101_cbam(pretrained=False, **kwargs):
+def resnet101(pretrained=False, **kwargs):
     """Constructs a ResNet-101 model.
 
     Args:
@@ -258,7 +258,7 @@ def resnet101_cbam(pretrained=False, **kwargs):
     return model
 
 
-def resnet152_cbam(pretrained=False, **kwargs):
+def resnet152(pretrained=False, **kwargs):
     """Constructs a ResNet-152 model.
 
     Args:

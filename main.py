@@ -29,8 +29,8 @@ if __name__ == '__main__':
 
     print('==> Building model..')
     # resnet.test()
-    preap_net = resnet.resnet18_cbam(pretrained=False)
-    prelat_net= resnet.resnet18_cbam(pretrained=False)
+    preap_net = resnet.resnet18(pretrained=True)
+    prelat_net= resnet.resnet18(pretrained=True)
     clinicinfo_net = clinicinfo.MLP(input_size=2, hidden_size=2, output_size=1)
     combined_model = combinedModel.CombinedResNet18(preap_net, prelat_net, clinicinfo_net, num_classes)
 
