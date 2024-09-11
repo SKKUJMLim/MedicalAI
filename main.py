@@ -13,8 +13,8 @@ if __name__ == '__main__':
     # 난수 시드 고정
     torch.manual_seed(42)
 
-    # resize = 224
-    resize = 32
+    resize = 224
+    # resize = 32
     mean = (0.485, 0.456, 0.406)
     std = (0.229, 0.224, 0.225)
     num_classes = 2
@@ -29,8 +29,8 @@ if __name__ == '__main__':
 
     print('==> Building model..')
     # resnet.test()
-    preap_net = resnet.resnet18(pretrained=True)
-    prelat_net= resnet.resnet18(pretrained=True)
+    preap_net = resnet.resnet34(pretrained=True)
+    prelat_net= resnet.resnet34(pretrained=True)
     clinicinfo_net = clinicinfo.MLP(input_size=2, hidden_size=2, output_size=1)
     combined_model = combinedModel.CombinedResNet18(preap_net, prelat_net, clinicinfo_net, num_classes)
 
