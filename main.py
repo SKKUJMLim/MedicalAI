@@ -16,8 +16,8 @@ if __name__ == '__main__':
     # 난수 시드 고정
     torch.manual_seed(42)
 
-    resize = 224
-    # resize = 32
+    # resize = 224
+    resize = 32
     mean = (0.485, 0.456, 0.406)
     std = (0.229, 0.224, 0.225)
     num_classes = 2
@@ -147,7 +147,7 @@ if __name__ == '__main__':
     sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues')
     plt.xlabel('Predicted Labels')
     plt.ylabel('True Labels')
-    plt.title('Confusion Matrix for CIFAR-10')
+    plt.title('Confusion Matrix for MedicalAI')
 
     # 이미지 파일로 저장 (PNG 형식)
     plt.savefig('confusion_matrix.png')
