@@ -10,7 +10,7 @@ class CombinedResNet18(nn.Module):
 
         # 두 모델의 출력 크기를 합친 크기의 FC 레이어
         self.fc = nn.Linear(512 * 2 + 1, num_classes) # Resnet 18, 34
-        self.fc = nn.Linear(512 * 2, num_classes)  # Resnet 18, 34
+        # self.fc = nn.Linear(512 * 2, num_classes)  # Resnet 18, 34
         # self.fc = nn.Linear(512 * 8 + 1, num_classes)   # Resnet 50
         # self.fc = nn.Linear(num_classes * 3, num_classes)
 

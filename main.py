@@ -4,6 +4,9 @@ import torch.nn as nn
 import torch.optim as optim
 from tqdm.auto import tqdm
 from models import resnet, vgg, combinedModel, clinicinfo
+from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 if __name__ == '__main__':
 
@@ -116,6 +119,10 @@ if __name__ == '__main__':
     correct = 0
     total = 0
 
+    # 실제 라벨과 예측 라벨을 저장할 리스트 (Confusion matrix)
+    all_labels = []
+    all_preds = []
+
     with torch.no_grad():
         for preap_inputs, prelat_inputs, clinic_inputs, labels in test_dataloader:
             # GPU가 사용가능하면 GPU에 데이터 전송
@@ -128,5 +135,21 @@ if __name__ == '__main__':
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
+
+            all_labels.extend(labels.cpu().numpy())  # 실제 라벨 저장
+            all_preds.extend(predicted.cpu().numpy())  # 예측 라벨 저장
+
+    # Confusion Matrix 생성
+    conf_matrix = confusion_matrix(all_labels, all_preds)
+
+    # Confusion Matrix 시각화 및 이미지 저장
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues')
+    plt.xlabel('Predicted Labels')
+    plt.ylabel('True Labels')
+    plt.title('Confusion Matrix for CIFAR-10')
+
+    # 이미지 파일로 저장 (PNG 형식)
+    plt.savefig('confusion_matrix.png')
 
     print(f'Accuracy of the best model on the test images: {100 * correct / total}%')
