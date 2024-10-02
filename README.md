@@ -1,7 +1,5 @@
 # MedicalAI
 
-![Uploading 그림1.png…]()
-
 (목표) 골절의 위치를 탐지하는 기존 연구와 달리, X-ray Image와 환자정보로부터 수술의 필요성을 분류하는 모델 설계
 
 ## 1. Dataset
