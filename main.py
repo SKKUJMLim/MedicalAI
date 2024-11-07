@@ -2,11 +2,11 @@ from dataloader import get_dataloader
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from tqdm.auto import tqdm
 from models import resnet, vgg, combinedModel, clinicinfo
 from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
+from models import gradcam
 
 if __name__ == '__main__':
 
@@ -16,13 +16,13 @@ if __name__ == '__main__':
     # 난수 시드 고정
     torch.manual_seed(42)
 
-    # resize = 224
-    resize = 32
+    resize = 224
+    # resize = 32
     mean = (0.485, 0.456, 0.406)
     std = (0.229, 0.224, 0.225)
     num_classes = 2
     batch_size = 4
-    num_epochs = 50
+    num_epochs = 1
     learning_rate = 0.001
 
     best_accuracy = 0.0
@@ -139,7 +139,9 @@ if __name__ == '__main__':
             all_labels.extend(labels.cpu().numpy())  # 실제 라벨 저장
             all_preds.extend(predicted.cpu().numpy())  # 예측 라벨 저장
 
-    # Confusion Matrix 생성
+    print(f'Accuracy of the best model on the test images: {100 * correct / total}%')
+
+    '''Confusion Matrix 생성'''
     conf_matrix = confusion_matrix(all_labels, all_preds)
 
     # Confusion Matrix 시각화 및 이미지 저장
@@ -152,4 +154,12 @@ if __name__ == '__main__':
     # 이미지 파일로 저장 (PNG 형식)
     plt.savefig('confusion_matrix.png')
 
-    print(f'Accuracy of the best model on the test images: {100 * correct / total}%')
+    '''Grad-CAM'''
+    ## 정면 이미지를 위한 Grad-CAM
+    grad_cam = gradcam.GradCAM(model=combined_model.model1, target_layer=combined_model.model1.layer4)
+    gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='preap' , model=combined_model.model1, testloader=test_dataloader)
+
+    ## 측면 이미지를 위한 Grad-CAM
+    grad_cam = gradcam.GradCAM(model=combined_model.model2, target_layer=combined_model.model2.layer4)
+    gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='prelat', model=combined_model.model2, testloader=test_dataloader)
+
