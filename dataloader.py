@@ -206,13 +206,6 @@ def get_dataloader(resize, mean, std, batch_size):
     test_list_preap = preap_surgery_test + preap_no_surgery_test
     test_list_prelat = prelat_surgery_test + prelat_no_surgery_test
 
-    print("train_list_preap == ", len(train_list_preap))
-    print("val_list_preap == ", len(val_list_preap))
-    print("test_list_preap == ", len(test_list_preap))
-
-
-
-
     train_dataset = MedicalDataset(preap_img_list=train_list_preap,
                                    prelat_img_list=train_list_prelat,
                                    transform=ImageTransform(resize, mean, std),
