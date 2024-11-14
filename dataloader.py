@@ -45,15 +45,18 @@ def split_dataset(surgery, no_surgery, split_ratio=0.7):
 
     """데이터셋을 가지고와서 훈련과 테스트셋으로 분류하는 함수"""
 
-    split_index = int(len(surgery) * split_ratio)
+    surgery_split_index = int(len(surgery) * split_ratio)
+
+    no_surgery_split_index = int(len(no_surgery) * split_ratio)
+
 
     ### 정답 데이터셋을 train과 test로 분리한다.
-    surgery_train = surgery[:split_index]
-    surgery_test = surgery[split_index:]
+    surgery_train = surgery[:surgery_split_index]
+    surgery_test = surgery[surgery_split_index:]
 
     ### 오답 데이터셋을 train과 test로 분리한다.
-    no_surgery_train = no_surgery[:split_index]
-    no_surgery_test = no_surgery[split_index:]
+    no_surgery_train = no_surgery[:no_surgery_split_index]
+    no_surgery_test = no_surgery[no_surgery_split_index:]
 
     return surgery_train, surgery_test, no_surgery_train, no_surgery_test
 
@@ -176,6 +179,7 @@ def get_dataloader(resize, mean, std, batch_size):
 
     preap_surgery, preap_no_surgery, prelat_surgery, prelat_no_surgery = make_datapath_list(rootpath=rootpath)
 
+
     # 1. 정면 데이터셋을 train과 test로 분리한다.
     preap_surgery_trainA, preap_surgery_test, preap_no_surgery_trainA, preap_no_surgery_test = split_dataset(
         preap_surgery, preap_no_surgery, split_ratio=0.8)
@@ -201,6 +205,13 @@ def get_dataloader(resize, mean, std, batch_size):
 
     test_list_preap = preap_surgery_test + preap_no_surgery_test
     test_list_prelat = prelat_surgery_test + prelat_no_surgery_test
+
+    print("train_list_preap == ", len(train_list_preap))
+    print("val_list_preap == ", len(val_list_preap))
+    print("test_list_preap == ", len(test_list_preap))
+
+
+
 
     train_dataset = MedicalDataset(preap_img_list=train_list_preap,
                                    prelat_img_list=train_list_prelat,
