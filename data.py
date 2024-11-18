@@ -10,10 +10,10 @@ import shutil
 """
 
 
-root_path = 'dataset\\20240903'
-excel_file = 'DLRF_v1.79_Rev.xlsx'
-# folder = os.path.join(root_path, 'DLRF512px_(764-870)')
-folder = os.path.join(root_path, 'DLRF512px_(871-1025)')
+root_path = 'dataset\\20241023'
+excel_file = 'DLRF_v1.93.xlsx'
+# folder = os.path.join(root_path, 'DLRF512px_(1026-1200)')
+folder = os.path.join(root_path, 'DLRF512px_(1201-1323)')
 
 def categorize_by_label(folder_name):
     # 1. 전체 파일 리스트 확보
