@@ -21,8 +21,8 @@ if __name__ == '__main__':
     mean = (0.485, 0.456, 0.406)
     std = (0.229, 0.224, 0.225)
     num_classes = 2
-    batch_size = 4
-    num_epochs = 1
+    batch_size = 8
+    num_epochs = 50
     learning_rate = 0.001
 
     best_accuracy = 0.0
