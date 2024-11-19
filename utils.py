@@ -97,3 +97,49 @@ def imshow(img):
     npimg = img.numpy()
     plt.imshow(np.transpose(npimg, (1, 2, 0)))
     plt.show()
+
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class FocalLoss(nn.Module):
+    def __init__(self, alpha=1, gamma=2, reduction='mean'):
+        """
+        Focal Loss
+        :param alpha: Weighting factor for the positive class
+        :param gamma: Focusing parameter to reduce the relative loss for well-classified examples
+        :param reduction: Specifies the reduction to apply to the output ('mean', 'sum', 'none')
+        """
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduction = reduction
+
+    def forward(self, inputs, targets):
+        """
+        Forward pass
+        :param inputs: Predicted logits (before softmax), shape (N, C) where C is the number of classes
+        :param targets: Ground truth labels, shape (N) where each value is 0 <= targets[i] <= C-1
+        :return: Focal Loss value
+        """
+        # Apply softmax to the inputs to get probabilities
+        probs = F.softmax(inputs, dim=1)
+
+        # Get the probabilities corresponding to the true class
+        true_probs = probs.gather(1, targets.unsqueeze(1)).squeeze(1)  # Shape: (N)
+
+        # Calculate the focal loss components
+        log_probs = torch.log(true_probs + 1e-7)  # To avoid log(0)
+        focal_weight = (1 - true_probs) ** self.gamma
+
+        # Apply the Focal Loss formula
+        loss = -self.alpha * focal_weight * log_probs
+
+        # Apply the specified reduction method
+        if self.reduction == 'mean':
+            return loss.mean()
+        elif self.reduction == 'sum':
+            return loss.sum()
+        else:
+            return loss  # No reduction

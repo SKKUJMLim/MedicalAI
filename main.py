@@ -7,6 +7,7 @@ from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
 from models import gradcam
+import utils
 
 if __name__ == '__main__':
 
@@ -78,7 +79,14 @@ if __name__ == '__main__':
             # 옵티마이저 초기화
             optimizer.zero_grad()
             outputs = combined_model(preap_inputs, prelat_inputs, clinic_inputs)
-            loss = criterion(outputs, labels)
+
+            '''단순 cross-enropy loss'''
+            # loss = criterion(outputs, labels)
+
+            '''단순 Focal loss'''
+            # Initialize Focal Loss
+            focal_loss = utils.FocalLoss(alpha=1, gamma=2, reduction='mean')
+            loss = focal_loss(outputs, labels)
 
             loss.backward()
             optimizer.step()
