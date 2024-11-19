@@ -80,10 +80,10 @@ if __name__ == '__main__':
             optimizer.zero_grad()
             outputs = combined_model(preap_inputs, prelat_inputs, clinic_inputs)
 
-            '''단순 cross-enropy loss'''
+            '''1. 단순 cross-enropy loss'''
             # loss = criterion(outputs, labels)
 
-            '''단순 Focal loss'''
+            '''2. Focal loss'''
             # Initialize Focal Loss
             focal_loss = utils.FocalLoss(alpha=1, gamma=2, reduction='mean')
             loss = focal_loss(outputs, labels)
