@@ -10,9 +10,9 @@ import shutil
 """
 
 
-root_path = 'dataset\\20241023'
-excel_file = 'DLRF_v1.93.xlsx'
-folder = os.path.join(root_path, 'DLRF512px_(1026-1200)')
+root_path = 'dataset'
+excel_file = 'DLRF_v1.96.xlsx'
+folder = os.path.join(root_path, 'ALL')
 # folder = os.path.join(root_path, 'DLRF512px_(1201-1323)')
 
 def categorize_by_label(folder_name):
@@ -22,24 +22,33 @@ def categorize_by_label(folder_name):
     clinic_csv = os.path.join(root_path, excel_file)
     clinic_info = pd.read_excel(clinic_csv, header=2)
 
+
+    pre_group =[]
+
     for jpg_file in os.listdir(folder_name):
         info = jpg_file.split('_')
         id = 'DLRF-' + info[1]
         clinic_info_byID = clinic_info[clinic_info['ID'] == id]
-        acceptability = int(clinic_info_byID['Acceptability'].iloc[0])
 
-        if acceptability == 0:
-            destination_folder = root_path + "\\" + '0pre'
-            source_file = os.path.join(folder_name, jpg_file)
-            destination_file = os.path.join(destination_folder, os.path.basename(source_file))
-            shutil.copy(source_file, destination_file)
-        elif acceptability == 1:
-            destination_folder = root_path + "\\" + '1pre'
-            source_file = os.path.join(folder_name, jpg_file)
-            destination_file = os.path.join(destination_folder, os.path.basename(source_file))
-            shutil.copy(source_file, destination_file)
-        else:
-            print(id + " 에서 error 발생")
+        try:
+            acceptability = int(clinic_info_byID['Acceptability'].iloc[0])
+
+            if acceptability == 0:
+                destination_folder = root_path + "\\" + '0pre'
+                source_file = os.path.join(folder_name, jpg_file)
+                destination_file = os.path.join(destination_folder, os.path.basename(source_file))
+                shutil.copy(source_file, destination_file)
+            elif acceptability == 1:
+                destination_folder = root_path + "\\" + '1pre'
+                source_file = os.path.join(folder_name, jpg_file)
+                destination_file = os.path.join(destination_folder, os.path.basename(source_file))
+                shutil.copy(source_file, destination_file)
+            else:
+                print(id + " 에서 label 오류")
+
+        except Exception as e:
+            # print(id + " 에서 label 오류")
+            continue
 
 
 
