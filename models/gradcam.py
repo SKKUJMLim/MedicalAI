@@ -6,14 +6,17 @@ from tqdm import tqdm
 import os
 
 # Grad-CAM 결과 계산 및 저장
-def save_all_grad_cam_results(grad_cam, model, testloader, image_type ,device='cuda'):
+def save_all_grad_cam_results(grad_cam, model, testloader, image_type, combinedModel ,device='cuda'):
 
     # Grad-CAM 결과 저장 폴더 생성
-    os.makedirs(f'grad_cam_results/{image_type}/0', exist_ok=True)
-    os.makedirs(f'grad_cam_results/{image_type}/1', exist_ok=True)
+    os.makedirs(f'grad_cam_results/{image_type}/0/Correct', exist_ok=True)
+    os.makedirs(f'grad_cam_results/{image_type}/0/Incorrect', exist_ok=True)
+    os.makedirs(f'grad_cam_results/{image_type}/1/Correct', exist_ok=True)
+    os.makedirs(f'grad_cam_results/{image_type}/1/Incorrect', exist_ok=True)
 
     model.eval()  # 모델을 평가 모드로 전환
-    for batch_idx, (preap_inputs, prelat_inputs, clinic_inputs, labels) in tqdm(enumerate(testloader), total=len(testloader), desc="Calculating Grad-CAM"):
+
+    for batch_idx, (ids, preap_inputs, prelat_inputs, clinic_inputs, labels) in tqdm(enumerate(testloader), total=len(testloader), desc="Calculating Grad-CAM"):
 
 
         if image_type == 'preap':
@@ -45,10 +48,22 @@ def save_all_grad_cam_results(grad_cam, model, testloader, image_type ,device='c
             original_image = original_image.astype(np.uint8)
             overlay = cv2.addWeighted(original_image, 0.6, cv2.applyColorMap(cam_image, cv2.COLORMAP_JET), 0.4, 0)
 
-            # 파일 이름 설정 및 저장
-            filename = f"grad_cam_results/{image_type}/{label}/grad_cam_batch{batch_idx}_img{i}.png"
-            cv2.imwrite(filename, overlay)
 
+            ##
+            id = ids[i]
+            preap_input = preap_inputs[i].to(device).unsqueeze(0)
+            prelat_input = prelat_inputs[i].to(device).unsqueeze(0)
+            clinic_input = clinic_inputs[i].to(device).unsqueeze(0)
+            output = combinedModel(preap_input, prelat_input, clinic_input)
+            _, predicted = torch.max(output.data, 1)
+
+            if predicted == label:
+                prediction = 'Correct'
+            else:
+                prediction = 'Incorrect'
+
+            filename = f"grad_cam_results/{image_type}/{label}/{prediction}/{id}.png"
+            cv2.imwrite(filename, overlay)
 
 
 class GradCAM:
@@ -75,6 +90,7 @@ class GradCAM:
         self.model.zero_grad()
 
         # 특정 클래스에 대해 backward pass 실행
+        # :는 배치의 모든 샘플을 의미
         loss = output[:, target_class].sum()
         loss.backward()
 

@@ -23,7 +23,7 @@ if __name__ == '__main__':
     std = (0.229, 0.224, 0.225)
     num_classes = 2
     batch_size = 8
-    num_epochs = 50
+    num_epochs = 1
     learning_rate = 0.001
 
     best_accuracy = 0.0
@@ -68,7 +68,7 @@ if __name__ == '__main__':
 
         trainloader =  train_loaders_dict['train']
 
-        for preap_inputs, prelat_inputs, clinic_inputs, labels in trainloader:
+        for ids, preap_inputs, prelat_inputs, clinic_inputs, labels in trainloader:
 
             # GPU가 사용가능하면 GPU에 데이터 전송
             preap_inputs = preap_inputs.to(device)
@@ -81,12 +81,12 @@ if __name__ == '__main__':
             outputs = combined_model(preap_inputs, prelat_inputs, clinic_inputs)
 
             '''1. 단순 cross-enropy loss'''
-            # loss = criterion(outputs, labels)
+            loss = criterion(outputs, labels)
 
             '''2. Focal loss'''
             # Initialize Focal Loss
-            focal_loss = utils.FocalLoss(alpha=1, gamma=2, reduction='mean')
-            loss = focal_loss(outputs, labels)
+            # focal_loss = utils.FocalLoss(alpha=1, gamma=2, reduction='mean')
+            # loss = focal_loss(outputs, labels)
 
             loss.backward()
             optimizer.step()
@@ -101,7 +101,7 @@ if __name__ == '__main__':
         validationloader = train_loaders_dict['val']
 
         with torch.no_grad():
-            for preap_inputs, prelat_inputs, clinic_inputs, labels in validationloader:
+            for ids, preap_inputs, prelat_inputs, clinic_inputs, labels in validationloader:
                 preap_inputs = preap_inputs.to(device)
                 prelat_inputs = prelat_inputs.to(device)
                 clinic_inputs = clinic_inputs.to(device)
@@ -132,7 +132,7 @@ if __name__ == '__main__':
     all_preds = []
 
     with torch.no_grad():
-        for preap_inputs, prelat_inputs, clinic_inputs, labels in test_dataloader:
+        for ids, preap_inputs, prelat_inputs, clinic_inputs, labels in test_dataloader:
             # GPU가 사용가능하면 GPU에 데이터 전송
             preap_inputs = preap_inputs.to(device)
             prelat_inputs = prelat_inputs.to(device)
@@ -165,9 +165,9 @@ if __name__ == '__main__':
     '''Grad-CAM'''
     ## 정면 이미지를 위한 Grad-CAM
     grad_cam = gradcam.GradCAM(model=combined_model.model1, target_layer=combined_model.model1.layer4)
-    gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='preap' , model=combined_model.model1, testloader=test_dataloader)
+    gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='preap' , model=combined_model.model1, testloader=test_dataloader, combinedModel=combined_model)
 
     ## 측면 이미지를 위한 Grad-CAM
     grad_cam = gradcam.GradCAM(model=combined_model.model2, target_layer=combined_model.model2.layer4)
-    gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='prelat', model=combined_model.model2, testloader=test_dataloader)
+    gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='prelat', model=combined_model.model2, testloader=test_dataloader, combinedModel=combined_model)
 

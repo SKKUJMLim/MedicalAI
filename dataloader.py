@@ -194,7 +194,7 @@ class MedicalDataset(data.Dataset):
         clinic_info = [age, bmi]
         clinic_info = torch.tensor(clinic_info, dtype=torch.float32)
 
-        return preap_img_transformed, prelat_img_transformed, clinic_info, label
+        return id, preap_img_transformed, prelat_img_transformed, clinic_info, label
 
 
 def get_dataloader(resize, mean, std, batch_size):
