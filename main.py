@@ -7,7 +7,7 @@ from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
 from models import gradcam
-import utils
+from lime.lime_tabular import LimeTabularExplainer
 
 if __name__ == '__main__':
 
@@ -170,4 +170,5 @@ if __name__ == '__main__':
     ## 측면 이미지를 위한 Grad-CAM
     grad_cam = gradcam.GradCAM(model=combined_model.model2, target_layer=combined_model.model2.layer4)
     gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='prelat', model=combined_model.model2, testloader=test_dataloader, combinedModel=combined_model)
+
 
