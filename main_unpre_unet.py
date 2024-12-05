@@ -1,5 +1,6 @@
 import argparse
 from dataloader import get_dataloader
+from utils import FocalLoss
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -33,8 +34,8 @@ if __name__ == '__main__':
     std = (0.229, 0.224, 0.225)
     num_classes = 2
     batch_size = 4
-    num_epochs = 100
-    learning_rate = 0.001
+    num_epochs = 200
+    learning_rate = 0.0001
 
     best_accuracy = 0.0
     best_model_path = f'./{model_name}unprebest_model.pth'
@@ -76,10 +77,10 @@ if __name__ == '__main__':
     combined_model.to(device=device)
 
     # 최적화 기법 설정
+    #criterion = FocalLoss(alpha=0.3, gamma = 2)
     criterion = nn.CrossEntropyLoss()
-    
-    # optimizer = optim.SGD(combined_model.parameters(), lr=learning_rate)
-    optimizer = optim.Adam(combined_model.parameters(), lr=learning_rate)
+    #optimizer = optim.SGD(combined_model.parameters(), lr=learning_rate)
+    optimizer = optim.Adam(combined_model.parameters(), lr=learning_rate, weight_decay=0.000001)
     log_dir = f'./tensorboard_logs/{model_name}'
     writer = SummaryWriter(log_dir=log_dir)
     # optimizer = optim.Adam([
@@ -102,7 +103,7 @@ if __name__ == '__main__':
 
         trainloader =  train_loaders_dict['train']
 
-        for preap_inputs, prelat_inputs, clinic_inputs, labels in trainloader:
+        for ids, preap_inputs, prelat_inputs, clinic_inputs, labels in trainloader:
 
             # GPU가 사용가능하면 GPU에 데이터 전송
             preap_inputs = preap_inputs.to(device)
@@ -113,12 +114,18 @@ if __name__ == '__main__':
             # 옵티마이저 초기화
             optimizer.zero_grad()
             outputs = combined_model(preap_inputs, prelat_inputs, clinic_inputs)
+
+            '''1. 단순 cross-enropy loss'''
             loss = criterion(outputs, labels)
+            '''2. Focal loss'''
+            # Initialize Focal Loss
+            # focal_loss = FocalLoss(alpha=0.2, gamma=3, reduction='mean')
+            # loss = focal_loss(outputs, labels)
 
             loss.backward()
             optimizer.step()
-            running_loss += loss.item()
-
+            running_loss += loss.item()            
+            
             # Accuracy calculation during training
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
@@ -128,6 +135,7 @@ if __name__ == '__main__':
 
         writer.add_scalar('Training Loss', train_loss, epoch + 1)
         writer.add_scalar('Training Accuracy', train_accuracy, epoch + 1)
+
         print(f'Epoch [{epoch + 1}/{num_epochs}] traning Loss: {train_loss:.4f} Training accuracy: {train_accuracy:.2f}% ')
 
         # Validation
@@ -138,13 +146,14 @@ if __name__ == '__main__':
         validationloader = train_loaders_dict['val']
 
         with torch.no_grad():
-            for preap_inputs, prelat_inputs, clinic_inputs, labels in validationloader:
+            for ids, preap_inputs, prelat_inputs, clinic_inputs, labels in validationloader:
                 preap_inputs = preap_inputs.to(device)
                 prelat_inputs = prelat_inputs.to(device)
                 clinic_inputs = clinic_inputs.to(device)
                 labels = labels.to(device)
                 outputs = combined_model(preap_inputs, prelat_inputs, clinic_inputs)
-                loss = criterion(outputs, labels)
+                #loss = focal_loss(outputs, labels)
+                loss = criterion(outputs,labels)
                 running_val_loss += loss.item()
 
                 _, predicted = torch.max(outputs.data, 1)
@@ -179,7 +188,7 @@ if __name__ == '__main__':
 
 
     with torch.no_grad():
-        for preap_inputs, prelat_inputs, clinic_inputs, labels in test_dataloader:
+        for ids, preap_inputs, prelat_inputs, clinic_inputs, labels in test_dataloader:
             # GPU가 사용가능하면 GPU에 데이터 전송
             preap_inputs = preap_inputs.to(device)
             prelat_inputs = prelat_inputs.to(device)
@@ -210,12 +219,12 @@ if __name__ == '__main__':
 
     '''Grad-CAM'''
     ## 정면 이미지를 위한 Grad-CAM
-    grad_cam = gradcam.GradCAM(model=combined_model.model1, target_layer=combined_model.model1.bottleneck)
-    gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='preap' , model=combined_model.model1, testloader=test_dataloader)
+    grad_cam = gradcam.GradCAM(model=combined_model.model1, target_layer=combined_model.model1.unet.bottleneck)
+    gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='preap' , model=combined_model.model1, testloader=test_dataloader,combinedModel=combined_model)
 
     ## 측면 이미지를 위한 Grad-CAM
-    grad_cam = gradcam.GradCAM(model=combined_model.model2, target_layer=combined_model.model2.bottleneck)
-    gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='prelat', model=combined_model.model2, testloader=test_dataloader)
+    grad_cam = gradcam.GradCAM(model=combined_model.model2, target_layer=combined_model.model2.unet.bottleneck)
+    gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='prelat', model=combined_model.model2, testloader=test_dataloader,combinedModel=combined_model)
    
     writer.add_scalar('Test Accuracy', val_accuracy)
 
