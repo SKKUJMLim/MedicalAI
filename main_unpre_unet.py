@@ -15,7 +15,7 @@ from models import U_Net
 
 
 parser = argparse.ArgumentParser(description = 'Train a medical image classifier.')
-parser.add_argument('--model_name', type=str, default='notpreMedicalNet')
+parser.add_argument('--model_name', type=str, default='unpreMedicalNet')
 
 args = parser.parse_args()
 model_name = args.model_name
