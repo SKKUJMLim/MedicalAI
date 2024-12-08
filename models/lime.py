@@ -4,7 +4,7 @@ import numpy as np
 from tqdm import tqdm
 
 
-num_samples=15 # perturbation 샘플 개수
+num_samples=5000 # perturbation 샘플 개수
 
 def predict_fn_for_lime(data, preap_input, prelat_input, combinedModel):
 
