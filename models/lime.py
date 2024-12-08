@@ -2,7 +2,9 @@ import torch
 import torch.nn as nn
 import numpy as np
 from tqdm import tqdm
-from lime.lime_tabular import LimeTabularExplainer
+
+
+num_samples=15 # perturbation 샘플 개수
 
 def predict_fn_for_lime(data, preap_input, prelat_input, combinedModel):
 
@@ -19,9 +21,21 @@ def predict_fn_for_lime(data, preap_input, prelat_input, combinedModel):
         확률값 배열 (numpy).
     """
 
+    combinedModel.to(preap_input.device)
+
+    # print("data.shape == ", data.shape) # LIME이 변형한 클리닉 데이터이기 때문에 차원이 높다
+
+    # LIME 변형 데이터를 PyTorch 텐서로 변환
+    clinic_input = torch.tensor(data, dtype=torch.float32).to(preap_input.device)
+
+    batch_size = clinic_input.size(0) # LIME이 변형한 클리닉 데이터와 batch를 맞춘다.
+
+    preap_input = preap_input.expand(batch_size, -1, -1, -1)  # 동일한 값을 배치 크기만큼 확장
+    prelat_input = prelat_input.expand(batch_size, -1, -1, -1)
+
     with torch.no_grad():
-        logits = combinedModel(preap_input, prelat_input, data)
-        probs = torch.softmax(logits, dim=1).numpy()
+        logits = combinedModel(preap_input, prelat_input, clinic_input)
+        probs = torch.softmax(logits, dim=1).cpu().numpy()
 
     return probs
 
@@ -41,8 +55,8 @@ def explain_instance(testloader, explainer, combinedModel, device='cuda'):
        """
 
 
-    combinedModel.eval()
-    combinedModel.to(device)
+    # combinedModel.eval()
+    # combinedModel.to(device)
     explanations = []
 
     for batch_idx, (ids, preap_inputs, prelat_inputs, clinic_inputs, labels) in tqdm(enumerate(testloader), total=len(testloader), desc="Calculating LIME"):
@@ -57,20 +71,24 @@ def explain_instance(testloader, explainer, combinedModel, device='cuda'):
             id = ids[i]
             preap_input = preap_inputs[i].unsqueeze(0)   # (1, C, H, W)
             prelat_input = prelat_inputs[i].unsqueeze(0) # (1, C, H, W)
-            clinic_input = clinic_inputs[i].unsqueeze(0)
-            # clinic_input = clinic_inputs[i].cpu().numpy()  # LIME은 numpy 배열 사용
+            # clinic_input = clinic_inputs[i].unsqueeze(0)
+            clinic_input = clinic_inputs[i].cpu().numpy()  # LIME은 numpy 배열 사용
             label = labels[i].item()
+
+            # print("clinic_input == ", clinic_input)
 
             # LIME 설명 생성
             def lime_predict_fn(data):
-                return predict_fn_for_lime(preap_input, prelat_input, clinic_input, label, combinedModel)
+                # print("lime_predict_fn data == ", data)
+                return predict_fn_for_lime(data, preap_input, prelat_input, combinedModel)
 
-            num_features = clinic_input.shape[0] # 설명할 클리닉 데이터 개수, print 해보자
+            num_features = clinic_input.shape[0] # 설명할 클리닉 데이터 feature 개수 (age, bmi)
 
             explanation = explainer.explain_instance(
                 clinic_input,     # 설명할 클리닉 데이터 (개별 샘플)
                 lime_predict_fn,  # 변형된 데이터 예측 함수, 원본 데이터를 변형하는 이유는 모델이 특정 특성(feature)에 얼마나 의존하는지 분석하기 위해서
-                num_features
+                num_features=num_features,
+                num_samples=num_samples # perturbation 샘플 개수
             )
 
             explanations.append((id, label, explanation))

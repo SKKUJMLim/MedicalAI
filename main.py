@@ -4,10 +4,15 @@ import torch.nn as nn
 import torch.optim as optim
 from models import resnet, vgg, combinedModel, clinicinfo
 from sklearn.metrics import confusion_matrix
-import matplotlib.pyplot as plt
 import seaborn as sns
 from models import gradcam
+
 from lime.lime_tabular import LimeTabularExplainer
+from models import lime
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+
 
 if __name__ == '__main__':
 
@@ -171,4 +176,27 @@ if __name__ == '__main__':
     grad_cam = gradcam.GradCAM(model=combined_model.model2, target_layer=combined_model.model2.layer4)
     gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='prelat', model=combined_model.model2, testloader=test_dataloader, combinedModel=combined_model)
 
+    '''LIME'''
+    training_data = []
+    for _, (_, _, _, clinic_inputs, _) in enumerate(test_dataloader):
+        training_data.append(clinic_inputs.cpu().numpy())
+    training_data = np.vstack(training_data)
+
+    # LimeTabularExplainer 초기화
+    explainer = LimeTabularExplainer(
+        training_data=training_data,  # 훈련 데이터 (numpy 배열)
+        feature_names=['age,', 'bmi'],  # 특성 이름 (리스트)
+        class_names=[0, 1],  # 클래스 이름 (리스트)
+        mode="classification"  # 모드: 분류(classification) 또는 회귀(regression)
+    )
+
+    # 설명 생성
+    explanations = lime.explain_instance(test_dataloader, explainer, combined_model, device='cuda')
+    os.makedirs(f'lime_results/', exist_ok=True)
+    # 특정 샘플에 대한 설명 출력
+    for sample_id, label, explanation in explanations:
+        # print(f"Sample ID: {sample_id}, Label: {label}")
+        file_name = f"lime_results/lime_explanation_sample_{sample_id}.html"
+        explanation.show_in_notebook()
+        explanation.save_to_file(file_name)
 
