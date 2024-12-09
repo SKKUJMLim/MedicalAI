@@ -192,11 +192,5 @@ if __name__ == '__main__':
 
     # 설명 생성
     explanations = lime.explain_instance(test_dataloader, explainer, combined_model, device='cuda')
-    os.makedirs(f'lime_results/', exist_ok=True)
-    # 특정 샘플에 대한 설명 출력
-    for sample_id, label, explanation in explanations:
-        # print(f"Sample ID: {sample_id}, Label: {label}")
-        file_name = f"lime_results/lime_explanation_sample_{sample_id}.html"
-        explanation.show_in_notebook()
-        explanation.save_to_file(file_name)
+    lime.save_all_lime_results(explanations)
 

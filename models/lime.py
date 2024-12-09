@@ -2,9 +2,24 @@ import torch
 import torch.nn as nn
 import numpy as np
 from tqdm import tqdm
+import os
+
 
 
 num_samples=5000 # perturbation 샘플 개수
+
+def save_all_lime_results(explanations):
+
+    os.makedirs(f'lime_results/0', exist_ok=True)
+    os.makedirs(f'lime_results/1', exist_ok=True)
+
+    # 특정 샘플에 대한 설명 출력
+    for sample_id, label, explanation in explanations:
+        # print(f"Sample ID: {sample_id}, Label: {label}")
+        file_name = f"lime_results/{label}/lime_explanation_sample_{sample_id}.html"
+        explanation.show_in_notebook()
+        explanation.save_to_file(file_name)
+
 
 def predict_fn_for_lime(data, preap_input, prelat_input, combinedModel):
 
