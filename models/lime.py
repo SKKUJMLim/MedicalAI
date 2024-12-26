@@ -2,11 +2,12 @@ import torch
 import torch.nn as nn
 import numpy as np
 from tqdm import tqdm
-import os
 
 
 
-num_samples=5000 # perturbation 샘플 개수
+
+num_samples=5000
+ # perturbation 샘플 개수
 
 def save_all_lime_results(explanations):
 
@@ -21,8 +22,8 @@ def save_all_lime_results(explanations):
         explanation.save_to_file(file_name)
 
 
-def predict_fn_for_lime(data, preap_input, prelat_input, combinedModel):
-
+def predict_fn_for_lime(data, preap_input, prelat_input, combinedModel, batch_size = 16):
+#def predict_fn_for_lime(data, preap_input, prelat_input, combinedModel):
     """
     LIME이 호출할 예측 함수. 변형된 테이블 데이터와 고정된 preap_input 및 prelat_input을 사용하여 모델 예측 확률 반환.
 
@@ -42,17 +43,31 @@ def predict_fn_for_lime(data, preap_input, prelat_input, combinedModel):
 
     # LIME 변형 데이터를 PyTorch 텐서로 변환
     clinic_input = torch.tensor(data, dtype=torch.float32).to(preap_input.device)
+    #배치로 perturbation을 나누어서 실행
+    probs_list = []
+    for i in range(0, len(clinic_input), batch_size):
+        batch_clinic_input = clinic_input[i:i + batch_size]
+        preap_batch = preap_input.expand(batch_clinic_input.size(0), -1, -1, -1)
+        prelat_batch = prelat_input.expand(batch_clinic_input.size(0), -1, -1, -1)
 
-    batch_size = clinic_input.size(0) # LIME이 변형한 클리닉 데이터와 batch를 맞춘다.
+        with torch.no_grad():
+            logits = combinedModel(preap_batch, prelat_batch, batch_clinic_input)
+            probs = torch.softmax(logits, dim=1).cpu().numpy()
+            probs_list.extend(probs)
 
-    preap_input = preap_input.expand(batch_size, -1, -1, -1)  # 동일한 값을 배치 크기만큼 확장
-    prelat_input = prelat_input.expand(batch_size, -1, -1, -1)
+    return np.array(probs_list)
+    
+    #원본 버젼
+    # batch_size = clinic_input.size(0) # LIME이 변형한 클리닉 데이터와 batch를 맞춘다.
+    
+    # preap_input = preap_input.expand(batch_size, -1, -1, -1)  # 동일한 값을 배치 크기만큼 확장
+    # prelat_input = prelat_input.expand(batch_size, -1, -1, -1)
 
-    with torch.no_grad():
-        logits = combinedModel(preap_input, prelat_input, clinic_input)
-        probs = torch.softmax(logits, dim=1).cpu().numpy()
+    # with torch.no_grad():
+    #     logits = combinedModel(preap_input, prelat_input, clinic_input)
+    #     probs = torch.softmax(logits, dim=1).cpu().numpy()
 
-    return probs
+    # return probs
 
 
 
@@ -109,7 +124,3 @@ def explain_instance(testloader, explainer, combinedModel, device='cuda'):
             explanations.append((id, label, explanation))
 
     return explanations
-
-
-
-
