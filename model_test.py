@@ -1,6 +1,7 @@
 import os
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 import argparse
+import csv
 import numpy as np
 import torch
 import torch.nn as nn
@@ -57,8 +58,8 @@ if __name__ == '__main__':
     #combined_model = combinedModel.CombinedResNet18_onlyImage(preap_net, prelat_net, num_classes)
 
     # Load the best model
-    #combined_model.load_state_dict(torch.load(r"/sehun/medicalai/medical_server/best_model.pth", map_location=device))
-    combined_model.load_state_dict(torch.load(r"best 모델 경로 설정정", map_location=device, weights_only = True))
+    #combined_model.load_state_dict(torch.load(r"/sehun/medicalai/medical_server/best_model_onlyimage.pth", map_location=device, weights_only = True))
+    combined_model.load_state_dict(torch.load(r"/sehun/medicalai/medical_server/unpre_unet2500unprebest_model.pth", map_location=device, weights_only = True))
     combined_model.to(device)
     combined_model.eval()
 
@@ -92,43 +93,61 @@ if __name__ == '__main__':
     accuracy = 100 * correct / total
     print(f'Accuracy of the model on the test set: {accuracy:.2f}%')
 
-    # Confusion Matrix visualization
-    conf_matrix = confusion_matrix(all_labels, all_preds)
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues')
-    plt.xlabel('Predicted Labels')
-    plt.ylabel('True Labels')
-    plt.title('Confusion Matrix for MedicalAI')
-    plt.savefig('confusion_matrix_test.png')
-    plt.show()
+    # # Confusion Matrix visualization
+    # conf_matrix = confusion_matrix(all_labels, all_preds)
+    # plt.figure(figsize=(10, 8))
+    # sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues')
+    # plt.xlabel('Predicted Labels')
+    # plt.ylabel('True Labels')
+    # plt.title('Confusion Matrix for MedicalAI')
+    # plt.savefig('confusion_matrix_test.png')
+    # plt.show()
 
-    fpr,tpr,thresholds = roc_curve(all_labels,all_scores,pos_label=1)
-    roc_auc = auc(fpr,tpr)
-    print(f"AUC:{roc_auc:.4f}")
-    # ROC 커브 시각화
-    plt.figure(figsize=(10,8))
-    plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc:.4f})')
-    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-    plt.xlim([0.0, 1.0])
-    plt.ylim([0.0, 1.05])
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('Receiver Operating Characteristic (ROC)')
-    plt.legend(loc="lower right")
-    plt.savefig('roc_curve.png')
-    plt.show()
+    # fpr,tpr,thresholds = roc_curve(all_labels,all_scores,pos_label=1)
+    # roc_auc = auc(fpr,tpr)
+    # print(f"AUC:{roc_auc:.4f}")
 
-    '''Grad-CAM'''
-    # 정면 이미지를 위한 Grad-CAM
-    grad_cam = gradcam.GradCAM(model=combined_model.model1, target_layer=combined_model.model1.unet.bottleneck)
-    gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='preap' , model=combined_model.model1, testloader=test_dataloader,combinedModel=combined_model)
+    # # FPR, TPR, Thresholds, AUC 값을 CSV 파일로 저장
+    # with open('roc_data.csv', mode='w', newline='') as file:
+    #     writer = csv.writer(file)
+    #     writer.writerow(['False Positive Rate', 'True Positive Rate', 'Threshold'])
+    #     for fp, tp, thresh in zip(fpr, tpr, thresholds):
+    #         writer.writerow([fp, tp, thresh])
+    #     writer.writerow([])  # 빈 줄 추가
+    #     writer.writerow(['AUC'])
+    #     writer.writerow([roc_auc])
+    # # ROC 커브 시각화
+    # plt.figure(figsize=(10,8))
+    # plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc:.4f})')
+    # plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+    # plt.xlim([0.0, 1.0])
+    # plt.ylim([0.0, 1.05])
+    # plt.xlabel('False Positive Rate')
+    # plt.ylabel('True Positive Rate')
+    # plt.title('Receiver Operating Characteristic (ROC)')
+    # plt.legend(loc="lower right")
+    # plt.savefig('roc_curve.png')
+    # plt.show()
 
-    ## 측면 이미지를 위한 Grad-CAM
-    grad_cam = gradcam.GradCAM(model=combined_model.model2, target_layer=combined_model.model2.unet.bottleneck)
-    gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='prelat', model=combined_model.model2, testloader=test_dataloader,combinedModel=combined_model)
+    # '''Grad-CAM'''
+    # # 정면 이미지를 위한 Grad-CAM
+    # grad_cam = gradcam.GradCAM(model=combined_model.model1, target_layer=combined_model.model1.unet.bottleneck)
+    # gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='preap' , model=combined_model.model1, testloader=test_dataloader,combinedModel=combined_model)
+
+    # ## 측면 이미지를 위한 Grad-CAM
+    # grad_cam = gradcam.GradCAM(model=combined_model.model2, target_layer=combined_model.model2.unet.bottleneck)
+    # gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='prelat', model=combined_model.model2, testloader=test_dataloader,combinedModel=combined_model)
     
 
-    
+    # #gradcam for image only model
+    # '''Grad-CAM'''
+    # # 정면 이미지를 위한 Grad-CAM
+    # grad_cam = gradcamforimage.GradCAM(model=combined_model.model1, target_layer=combined_model.model1.unet.bottleneck)
+    # gradcamforimage.save_all_grad_cam_results(grad_cam=grad_cam, image_type='preap' , model=combined_model.model1, testloader=test_dataloader,combinedModel=combined_model)
+
+    # ## 측면 이미지를 위한 Grad-CAM
+    # grad_cam = gradcamforimage.GradCAM(model=combined_model.model2, target_layer=combined_model.model2.unet.bottleneck)
+    # gradcamforimage.save_all_grad_cam_results(grad_cam=grad_cam, image_type='prelat', model=combined_model.model2, testloader=test_dataloader,combinedModel=combined_model)
     
     torch.cuda.empty_cache()
 
@@ -136,8 +155,8 @@ if __name__ == '__main__':
     '''LIME'''
 
     #모델 cpu 이동
-    # combined_model.cpu()
-    # device = 'cpu'
+    combined_model.cpu()
+    device = 'cpu'
 
     training_data = []
     for _, (_, _, _, clinic_inputs, _) in enumerate(test_dataloader):
@@ -155,4 +174,5 @@ if __name__ == '__main__':
 
     # 설명 생성
     explanations = lime.explain_instance(test_dataloader, explainer, combined_model, device=device)
-    lime.save_all_lime_results(explanations)
+    age_scaler, bmi_scaler = test_dataloader.dataset.get_scaler()
+    lime.save_all_lime_results(explanations,age_scaler=age_scaler, bmi_scaler=bmi_scaler)
