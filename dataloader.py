@@ -17,15 +17,14 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler, LabelEncoder
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
-rootpath = 'dataset'
-clinic_csv = os.path.join(rootpath, 'DLRF_v1.93.xlsx')
-
+rootpath = "dataset"
+clinic_csv = os.path.join(rootpath, 'DLRF_v1.96.xlsx')
 
 def make_datapath_list(rootpath):
     """데이터셋을 가지고와서 정면 사진과 측면 사진으로 분류하는 함수"""
 
-    surgery_folder_path = os.path.join(rootpath, '1pre')
-    no_surgery_folder_path = os.path.join(rootpath, '0pre')
+    surgery_folder_path = os.path.join(rootpath, '1pre_new')
+    no_surgery_folder_path = os.path.join(rootpath, '0pre_new')
 
     ''' 0. 전체 파일 리스트를 확보한다'''
     surgery = glob.glob(os.path.join(surgery_folder_path, '*.jpg'))
@@ -110,7 +109,6 @@ class ImageTransform():
         img = np.array(img)
         return self.data_transform[phase](image=img)['image']
 
-
 class MedicalDataset(data.Dataset):
 
     def __init__(self, preap_img_list, prelat_img_list, phase, transform, clinic_csv):
@@ -140,10 +138,10 @@ class MedicalDataset(data.Dataset):
         # 2. AO OTA Classification를 0~1 사이의 값으로 수치화한다.
         label_encoder = LabelEncoder()
         scaler = MinMaxScaler()
-        self.clinic_info['AO OTA Classification'] = label_encoder.fit_transform(
-            self.clinic_info['AO OTA Classification'])  # 텍스트 컬럼을 정수로 변환
-        self.clinic_info['AO OTA Classification'] = scaler.fit_transform(
-            self.clinic_info['AO OTA Classification'].values.reshape(-1, 1))  # 텍스트 컬럼을 정수로 변환
+        # self.clinic_info['AO OTA Classification'] = label_encoder.fit_transform(
+        #     self.clinic_info['AO OTA Classification'])  # 텍스트 컬럼을 정수로 변환
+        # self.clinic_info['AO OTA Classification'] = scaler.fit_transform(
+        #     self.clinic_info['AO OTA Classification'].values.reshape(-1, 1))  # 텍스트 컬럼을 정수로 변환
 
         # 3. BMI 정규화.
         bmi_info = self.clinic_info['BMI']
@@ -184,7 +182,9 @@ class MedicalDataset(data.Dataset):
             label = 1
 
         # 4. 환자정보 추출 (Text)
-        filename = preap_file_path.split('\\')[2]
+        #print(preap_file_path)
+        filename = preap_file_path.split('/')[2]
+        #print(filename)
         id = 'DLRF-' + filename.split('_')[1]
         clinic_info_byID = self.clinic_info[self.clinic_info['ID'] == id]
         # print(clinic_info_byID.iloc[0].values)
@@ -194,10 +194,10 @@ class MedicalDataset(data.Dataset):
         # else:
         #     print("데이터가 없거나 열 이름이 잘못되었습니다.")
         bmi = clinic_info_byID['BMI'].iloc[0]
-        acceptability = clinic_info_byID['Acceptability'].iloc[0]
-        subsequent = clinic_info_byID['Presence of Subsequent \nor concomittent fracture'].iloc[0]
-        ota = clinic_info_byID['AO OTA Classification'].iloc[0]
-
+        #acceptability = clinic_info_byID['Acceptability'].iloc[0]
+        #subsequent = clinic_info_byID['Presence of Subsequent \nor concomittent fracture'].iloc[0]
+        #ota = clinic_info_byID['AO OTA Classification'].iloc[0]
+        comitfracture = clinic_info_byID['Presence of Subsequent \nor concomittent fracture'].iloc[0]
         clinic_info = [age, bmi]
         clinic_info = torch.tensor(clinic_info, dtype=torch.float32)
 
@@ -264,20 +264,19 @@ def get_dataloader(resize, mean, std, batch_size):
 
     return dataloaders_dict, test_dataloader
 
-# if __name__ == "__main__":
-#     # 테스트를 위해 DataLoader 생성
-#     resize = 224
-#     mean = (0.485, 0.456, 0.406)
-#     std = (0.229, 0.224, 0.225)
-#     batch_size = 4
+if __name__ == "__main__":
+    # 테스트를 위해 DataLoader 생성
+    resize = 224
+    mean = (0.485, 0.456, 0.406)
+    std = (0.229, 0.224, 0.225)
+    batch_size = 4
 
-#     dataloaders_dict, test_dataloader = get_dataloader(resize, mean, std, batch_size)
+    dataloaders_dict, test_dataloader = get_dataloader(resize, mean, std, batch_size)
 
-#     # 데이터셋이 잘 로드되었는지 확인하기 위해 한 배치만 출력
-#     for preap_inputs, prelat_inputs, clinic_inputs, labels in test_dataloader:
-#         print(f"PreAP Inputs Shape: {preap_inputs.shape}")
-#         print(f"PreLat Inputs Shape: {prelat_inputs.shape}")
-#         print(f"Clinic Info: {clinic_inputs}")
-#         print(f"Labels: {labels}")
-#         break  # 한 배치만 확인
-
+    # 데이터셋이 잘 로드되었는지 확인하기 위해 한 배치만 출력
+    for _, preap_inputs, prelat_inputs, clinic_inputs, labels in test_dataloader:
+        print(f"PreAP Inputs Shape: {preap_inputs.shape}")
+        print(f"PreLat Inputs Shape: {prelat_inputs.shape}")
+        print(f"Clinic Info: {clinic_inputs}")
+        print(f"Labels: {labels}")
+        break  # 한 배치만 확인
