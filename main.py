@@ -167,14 +167,14 @@ if __name__ == '__main__':
     # 이미지 파일로 저장 (PNG 형식)
     plt.savefig('confusion_matrix.png')
 
-    '''Grad-CAM'''
-    ## 정면 이미지를 위한 Grad-CAM
-    grad_cam = gradcam.GradCAM(model=combined_model.model1, target_layer=combined_model.model1.layer4)
-    gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='preap' , model=combined_model.model1, testloader=test_dataloader, combinedModel=combined_model)
-
-    ## 측면 이미지를 위한 Grad-CAM
-    grad_cam = gradcam.GradCAM(model=combined_model.model2, target_layer=combined_model.model2.layer4)
-    gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='prelat', model=combined_model.model2, testloader=test_dataloader, combinedModel=combined_model)
+    # '''Grad-CAM'''
+    # ## 정면 이미지를 위한 Grad-CAM
+    # grad_cam = gradcam.GradCAM(model=combined_model.model1, target_layer=combined_model.model1.layer4)
+    # gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='preap' , model=combined_model.model1, testloader=test_dataloader, combinedModel=combined_model)
+    #
+    # ## 측면 이미지를 위한 Grad-CAM
+    # grad_cam = gradcam.GradCAM(model=combined_model.model2, target_layer=combined_model.model2.layer4)
+    # gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='prelat', model=combined_model.model2, testloader=test_dataloader, combinedModel=combined_model)
 
     '''LIME'''
     training_data = []
@@ -192,5 +192,6 @@ if __name__ == '__main__':
 
     # 설명 생성
     explanations = lime.explain_instance(test_dataloader, explainer, combined_model, device='cuda')
-    lime.save_all_lime_results(explanations)
+    age_scaler, bmi_scaler = test_dataloader.dataset.get_scaler()
+    lime.save_all_lime_results(explanations,age_scaler=age_scaler, bmi_scaler=bmi_scaler)
 

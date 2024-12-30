@@ -127,11 +127,15 @@ class MedicalDataset(data.Dataset):
                                                     'AO OTA Classification']
                                          , header=2)
 
+        # 정규화 하기 전에 원본 값을 저장
+        self.clinic_info['Age_original'] = self.clinic_info['Age\n(진료일기준)']  # 원본 값 저장
+        self.clinic_info['BMI_original'] = self.clinic_info['BMI']  # 원본 값 저장
+
         # 1. 나이를 정규화한다
         column = self.clinic_info['Age\n(진료일기준)']
         # scaler = StandardScaler() # Z-score Scaler 사용
-        scaler = MinMaxScaler()  # Min-Max Scaler 사용
-        self.clinic_info['Age\n(진료일기준)'] = scaler.fit_transform(column.values.reshape(-1, 1))
+        self.age_scaler = MinMaxScaler()  # Min-Max Scaler 사용
+        self.clinic_info['Age\n(진료일기준)'] = self.age_scaler.fit_transform(column.values.reshape(-1, 1))
 
         # 2. AO OTA Classification를 0~1 사이의 값으로 수치화한다.
         label_encoder = LabelEncoder()
@@ -143,13 +147,16 @@ class MedicalDataset(data.Dataset):
 
         # 3. BMI 정규화.
         bmi_info = self.clinic_info['BMI']
-        # scaler = StandardScaler() # Z-score Scaler 사용
-        self.clinic_info['BMI'] = scaler.fit_transform(bmi_info.values.reshape(-1, 1))
+        self.bmi_scaler = MinMaxScaler()
+        self.clinic_info['BMI'] = self.bmi_scaler.fit_transform(bmi_info.values.reshape(-1, 1))
         # print("Clinic Info DataFrame Head: \n", self.clinic_info.head())  # 처음 몇 개의 행을 출력
         # print("Clinic Info Columns: \n", self.clinic_info.columns)  # 컬럼 이름 출력
 
         # # 데이터 확인
         # print(self.clinic_info.head())
+
+    def get_scaler(self):
+        return self.age_scaler, self.bmi_scaler
 
     def __len__(self):
         """이미지 개수를 반환"""
