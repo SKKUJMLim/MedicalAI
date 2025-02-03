@@ -121,6 +121,8 @@ class MedicalDataset(data.Dataset):
                                                     'Age\n(진료일기준)',
                                                     'BMI',
                                                     'Acceptability',
+                                                    'Gender',
+                                                    'Side',
                                                     'Presence of Subsequent \nor concomittent fracture',
                                                     'AO OTA Classification']
                                          , header=2)
@@ -128,6 +130,9 @@ class MedicalDataset(data.Dataset):
         # 정규화 하기 전에 원본 값을 저장
         self.clinic_info['Age_original'] = self.clinic_info['Age\n(진료일기준)']  # 원본 값 저장
         self.clinic_info['BMI_original'] = self.clinic_info['BMI']  # 원본 값 저장
+        self.clinic_info['gender_original'] = self.clinic_info['Gender']
+        self.clinic_info['Side_original'] = self.clinic_info['Side']
+        self.clinic_info['Presence of Subsequent \nor concomittent fracture_original'] = self.clinic_info['Presence of Subsequent \nor concomittent fracture']
 
         # 1. 나이를 정규화한다
         column = self.clinic_info['Age\n(진료일기준)']
@@ -136,12 +141,9 @@ class MedicalDataset(data.Dataset):
         self.clinic_info['Age\n(진료일기준)'] = self.age_scaler.fit_transform(column.values.reshape(-1, 1))
 
         # 2. AO OTA Classification를 0~1 사이의 값으로 수치화한다.
-        label_encoder = LabelEncoder()
-        scaler = MinMaxScaler()
-        # self.clinic_info['AO OTA Classification'] = label_encoder.fit_transform(
-        #     self.clinic_info['AO OTA Classification'])  # 텍스트 컬럼을 정수로 변환
-        # self.clinic_info['AO OTA Classification'] = scaler.fit_transform(
-        #     self.clinic_info['AO OTA Classification'].values.reshape(-1, 1))  # 텍스트 컬럼을 정수로 변환
+        self.label_encoder = LabelEncoder()
+        self.scaler = MinMaxScaler()
+        
 
         # 3. BMI 정규화.
         bmi_info = self.clinic_info['BMI']
@@ -149,12 +151,22 @@ class MedicalDataset(data.Dataset):
         self.clinic_info['BMI'] = self.bmi_scaler.fit_transform(bmi_info.values.reshape(-1, 1))
         # print("Clinic Info DataFrame Head: \n", self.clinic_info.head())  # 처음 몇 개의 행을 출력
         # print("Clinic Info Columns: \n", self.clinic_info.columns)  # 컬럼 이름 출력
+        #4 성별 정규화화
+        gender_info = self.clinic_info['Gender']
+        self.clinic_info['Gender'] = self.label_encoder.fit_transform(gender_info)
+        #5 사이드 정규화
+        side_info = self.clinic_info['Side']
+        self.clinic_info['Side'] = self.label_encoder.fit_transform(side_info)
 
+        #6 presence 정규화
+        presence_info = self.clinic_info['Presence of Subsequent \nor concomittent fracture']
+        self.clinic_info['Presence of Subsequent \nor concomittent fracture'] = self.label_encoder.fit_transform(presence_info)
+        
         # # 데이터 확인
         # print(self.clinic_info.head())
 
     def get_scaler(self):
-        return self.age_scaler, self.bmi_scaler
+        return self.age_scaler, self.bmi_scaler, self.label_encoder, self.scaler
 
     def __len__(self):
         """이미지 개수를 반환"""
@@ -183,7 +195,8 @@ class MedicalDataset(data.Dataset):
 
         # 4. 환자정보 추출 (Text)
         #print(preap_file_path)
-        filename = preap_file_path.split('/')[2]
+        #filename = preap_file_path.split('/')[2]
+        filename = os.path.basename(preap_file_path)
         #print(filename)
         id = 'DLRF-' + filename.split('_')[1]
         clinic_info_byID = self.clinic_info[self.clinic_info['ID'] == id]
@@ -194,11 +207,15 @@ class MedicalDataset(data.Dataset):
         # else:
         #     print("데이터가 없거나 열 이름이 잘못되었습니다.")
         bmi = clinic_info_byID['BMI'].iloc[0]
+        presence = clinic_info_byID['Presence of Subsequent \nor concomittent fracture'].iloc[0]
+        side = clinic_info_byID['Side'].iloc[0]
+        gender = clinic_info_byID['Gender'].iloc[0]
+
         #acceptability = clinic_info_byID['Acceptability'].iloc[0]
         #subsequent = clinic_info_byID['Presence of Subsequent \nor concomittent fracture'].iloc[0]
         #ota = clinic_info_byID['AO OTA Classification'].iloc[0]
         comitfracture = clinic_info_byID['Presence of Subsequent \nor concomittent fracture'].iloc[0]
-        clinic_info = [age, bmi]
+        clinic_info = [age, bmi, presence,gender,side]
         clinic_info = torch.tensor(clinic_info, dtype=torch.float32)
 
         return id, preap_img_transformed, prelat_img_transformed, clinic_info, label
@@ -264,19 +281,19 @@ def get_dataloader(resize, mean, std, batch_size):
 
     return dataloaders_dict, test_dataloader
 
-if __name__ == "__main__":
-    # 테스트를 위해 DataLoader 생성
-    resize = 224
-    mean = (0.485, 0.456, 0.406)
-    std = (0.229, 0.224, 0.225)
-    batch_size = 4
+# if __name__ == "__main__":
+#     # 테스트를 위해 DataLoader 생성
+#     resize = 224
+#     mean = (0.485, 0.456, 0.406)
+#     std = (0.229, 0.224, 0.225)
+#     batch_size = 4
 
-    dataloaders_dict, test_dataloader = get_dataloader(resize, mean, std, batch_size)
+#     dataloaders_dict, test_dataloader = get_dataloader(resize, mean, std, batch_size)
 
-    # 데이터셋이 잘 로드되었는지 확인하기 위해 한 배치만 출력
-    for _, preap_inputs, prelat_inputs, clinic_inputs, labels in test_dataloader:
-        print(f"PreAP Inputs Shape: {preap_inputs.shape}")
-        print(f"PreLat Inputs Shape: {prelat_inputs.shape}")
-        print(f"Clinic Info: {clinic_inputs}")
-        print(f"Labels: {labels}")
-        break  # 한 배치만 확인
+#     # 데이터셋이 잘 로드되었는지 확인하기 위해 한 배치만 출력
+#     for _, preap_inputs, prelat_inputs, clinic_inputs, labels in test_dataloader:
+#         print(f"PreAP Inputs Shape: {preap_inputs.shape}")
+#         print(f"PreLat Inputs Shape: {prelat_inputs.shape}")
+#         print(f"Clinic Info: {clinic_inputs}")
+#         print(f"Labels: {labels}")
+#         break  # 한 배치만 확인

@@ -1,3 +1,4 @@
+import os
 import argparse
 from dataloader import get_dataloader
 from utils import FocalLoss
@@ -11,11 +12,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from torch.utils.tensorboard import SummaryWriter
 from models import gradcam
-from models import U_Net
-
+from models import U_Net, lime
+from lime.lime_tabular import LimeTabularExplainer
+import numpy as np
 
 parser = argparse.ArgumentParser(description = 'Train a medical image classifier.')
-parser.add_argument('--model_name', type=str, default='unpreMedicalNet')
+parser.add_argument('--model_name', type=str, default='notpreMedicalNet')
 
 args = parser.parse_args()
 model_name = args.model_name
@@ -35,7 +37,7 @@ if __name__ == '__main__':
     num_classes = 2
     batch_size = 4
     num_epochs = 200
-    learning_rate = 0.0001
+    learning_rate = 0.00001
 
     best_accuracy = 0.0
     best_model_path = f'./{model_name}unprebest_model.pth'
@@ -46,7 +48,7 @@ if __name__ == '__main__':
     # resnet.test()
     preap_net = U_Net.UNet()
     prelat_net = U_Net.UNet()
-    clinicinfo_net = clinicinfo.MLP(input_size=2, hidden_size=2, output_size=1)
+    clinicinfo_net = clinicinfo.MLP(input_size=5, hidden_size=3, output_size=1)
     
     #U-Net의 출력 크기를 조정하기 위해 Flatten 및 Linear 레이어 추가
     class UNetEncoder(nn.Module):
@@ -217,17 +219,36 @@ if __name__ == '__main__':
     # 이미지 파일로 저장 (PNG 형식)
     plt.savefig('confusion_matrix.png')
 
-    '''Grad-CAM'''
-    ## 정면 이미지를 위한 Grad-CAM
-    grad_cam = gradcam.GradCAM(model=combined_model.model1, target_layer=combined_model.model1.unet.bottleneck)
-    gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='preap' , model=combined_model.model1, testloader=test_dataloader,combinedModel=combined_model)
+    # '''Grad-CAM'''
+    # ## 정면 이미지를 위한 Grad-CAM
+    # grad_cam = gradcam.GradCAM(model=combined_model.model1, target_layer=combined_model.model1.unet.bottleneck)
+    # gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='preap' , model=combined_model.model1, testloader=test_dataloader,combinedModel=combined_model)
 
-    ## 측면 이미지를 위한 Grad-CAM
-    grad_cam = gradcam.GradCAM(model=combined_model.model2, target_layer=combined_model.model2.unet.bottleneck)
-    gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='prelat', model=combined_model.model2, testloader=test_dataloader,combinedModel=combined_model)
+    # ## 측면 이미지를 위한 Grad-CAM
+    # grad_cam = gradcam.GradCAM(model=combined_model.model2, target_layer=combined_model.model2.unet.bottleneck)
+    # gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='prelat', model=combined_model.model2, testloader=test_dataloader,combinedModel=combined_model)
    
     writer.add_scalar('Test Accuracy', val_accuracy)
 
     # SummaryWriter 닫기
     writer.close()
-    #commiting practice
+    torch.cuda.empty_cache()
+
+    '''LIME'''
+    training_data = []
+    for _, (_, _, _, clinic_inputs, _) in enumerate(test_dataloader):
+        training_data.append(clinic_inputs.cpu().numpy())
+    training_data = np.vstack(training_data)
+
+    # LimeTabularExplainer 초기화
+    explainer = LimeTabularExplainer(
+        training_data=training_data,  # 훈련 데이터 (numpy 배열)
+        feature_names=['age,', 'bmi','gender','side','presence'],  # 특성 이름 (리스트)
+        class_names=[0, 1],  # 클래스 이름 (리스트)
+        mode="classification"  # 모드: 분류(classification) 또는 회귀(regression)
+    )
+
+    # 설명 생성
+    explanations = lime.explain_instance(test_dataloader, explainer, combined_model, device='cuda')
+    lime.save_all_lime_results(explanations)
+    

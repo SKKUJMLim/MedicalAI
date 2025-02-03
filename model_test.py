@@ -36,7 +36,7 @@ if __name__ == '__main__':
     # Load model components
     preap_net = U_Net.UNet()
     prelat_net = U_Net.UNet()
-    clinicinfo_net = clinicinfo.MLP(input_size=2, hidden_size=2, output_size=1)
+    clinicinfo_net = clinicinfo.MLP(input_size=5, hidden_size=3, output_size=1)
     
     # Define combined model
     class UNetEncoder(nn.Module):
@@ -55,20 +55,24 @@ if __name__ == '__main__':
     preap_net = UNetEncoder(preap_net)
     prelat_net = UNetEncoder(prelat_net)
     combined_model = combinedModel.CombinedUnet(preap_net, prelat_net, clinicinfo_net, num_classes)
-    #combined_model = combinedModel.CombinedResNet18_onlyImage(preap_net, prelat_net, num_classes)
+    combined_model_image = combinedModel.CombinedResNet18_onlyImage(preap_net, prelat_net, num_classes)
 
     # Load the best model
-    #combined_model.load_state_dict(torch.load(r"/sehun/medicalai/medical_server/best_model_onlyimage.pth", map_location=device, weights_only = True))
-    combined_model.load_state_dict(torch.load(r"/sehun/medicalai/medical_server/unpre_unet2500unprebest_model.pth", map_location=device, weights_only = True))
+    #combined_model_image.load_state_dict(torch.load(r"/sehun/medicalai/medical_server/best_model_onlyimage.pth", map_location=device, weights_only = True))
+    combined_model.load_state_dict(torch.load(r'/sehun/medicalai/medical_server/plus_hidden_3unprebest_model.pth', map_location=device, weights_only = True))
     combined_model.to(device)
     combined_model.eval()
+    combined_model_image.to(device)
+    combined_model_image.eval()
+
 
     correct = 0
     total = 0
     all_labels = []
     all_preds = []
     all_scores = [] #양성 클래스 확률 저장
-
+    
+    disagreement = []
     with torch.no_grad():
         for ids,preap_inputs, prelat_inputs, clinic_inputs, labels in test_dataloader:
             preap_inputs = preap_inputs.to(device)
@@ -76,47 +80,85 @@ if __name__ == '__main__':
             clinic_inputs = clinic_inputs.to(device)
             labels = labels.to(device)
             outputs = combined_model(preap_inputs, prelat_inputs, clinic_inputs)
-            #outputs = combined_model(preap_inputs, prelat_inputs)
+            #이미지 모델 예측
+            #outputs_image = combined_model_image(preap_inputs, prelat_inputs)
+            
+            #두 모델 예측
+            #_, predicted = torch.max(outputs.data,1)
+            #_,predicted_image = torch.max(outputs_image.data,1)
+            
+            # 배치 내 각 데이터에 대해 반복
+            #for i in range(labels.size(0)):  # labels.size(0): 배치 크기
+            #    if predicted[i] != predicted_image[i]:
+            #        disagreement.append((ids[i], labels[i].item(), predicted[i].item(), predicted_image[i].item()))
 
             #양성 클래스 확률
             probs = torch.softmax(outputs,dim=1)[:,1].cpu().numpy()
             all_scores.extend(probs)
-
-
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
             all_labels.extend(labels.cpu().numpy())
             all_preds.extend(predicted.cpu().numpy())
 
+            #양성 클래스 확률 이미지 모델에 적용용
+            # probs = torch.softmax(outputs_image,dim=1)[:,1].cpu().numpy()
+            # all_scores.extend(probs)
+            # _, predicted = torch.max(outputs_image.data, 1)
+            # total += labels.size(0)
+            # correct += (predicted == labels).sum().item()
+            # all_labels.extend(labels.cpu().numpy())
+            # all_preds.extend(predicted.cpu().numpy())
+
+    #다른 예측 리스트 출력
+    # print('\ndisagreement (ID,True label, original prediction, image prediction):')
+    # for item in disagreement:
+    #     print(item)
+
     # Accuracy calculation
     accuracy = 100 * correct / total
     print(f'Accuracy of the model on the test set: {accuracy:.2f}%')
 
-    # # Confusion Matrix visualization
-    # conf_matrix = confusion_matrix(all_labels, all_preds)
-    # plt.figure(figsize=(10, 8))
-    # sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues')
-    # plt.xlabel('Predicted Labels')
-    # plt.ylabel('True Labels')
-    # plt.title('Confusion Matrix for MedicalAI')
-    # plt.savefig('confusion_matrix_test.png')
-    # plt.show()
+    # Confusion Matrix visualization
+    conf_matrix = confusion_matrix(all_labels, all_preds)
+    plt.figure(figsize=(10, 8))
+    class_names = ["Surgical treatment required","Conservative treatment eligible"]
+    ax = sns.heatmap(
+        conf_matrix,
+        annot=True, 
+        fmt='d', 
+        cmap='Blues',
+        xticklabels=class_names,
+        yticklabels=class_names,
+        cbar_kws={'shrink': 0.8},
+        annot_kws={"fontsize": 12},
+        )
+    
+    ax.set_xticklabels(class_names, ha='center', fontsize=12, fontweight='bold')
+    ax.set_yticklabels(class_names, va='center', fontsize=12, fontweight='bold')
 
-    # fpr,tpr,thresholds = roc_curve(all_labels,all_scores,pos_label=1)
-    # roc_auc = auc(fpr,tpr)
-    # print(f"AUC:{roc_auc:.4f}")
+    plt.xlabel('Predicted Labels',fontsize = 14)
+    plt.ylabel('True Labels',fontsize = 14)
+    plt.title('Confusion Matrix for Image data + Clinical data model',fontsize =14, fontweight='bold')
+    #plt.title('Confusion Matrix for Image only model', fontsize = 14, fontweight='bold')
+    plt.savefig('confusion_matrix_I+C_0203.png', bbox_inches='tight')
+    #plt.savefig('confusion_matrix_I.png', bbox_inches='tight')
+    plt.show()
 
-    # # FPR, TPR, Thresholds, AUC 값을 CSV 파일로 저장
-    # with open('roc_data.csv', mode='w', newline='') as file:
-    #     writer = csv.writer(file)
-    #     writer.writerow(['False Positive Rate', 'True Positive Rate', 'Threshold'])
-    #     for fp, tp, thresh in zip(fpr, tpr, thresholds):
-    #         writer.writerow([fp, tp, thresh])
-    #     writer.writerow([])  # 빈 줄 추가
-    #     writer.writerow(['AUC'])
-    #     writer.writerow([roc_auc])
-    # # ROC 커브 시각화
+    fpr,tpr,thresholds = roc_curve(all_labels,all_scores,pos_label=1)
+    roc_auc = auc(fpr,tpr)
+    print(f"AUC:{roc_auc:.4f}")
+
+    # FPR, TPR, Thresholds, AUC 값을 CSV 파일로 저장
+    with open('roc_data_new.csv', mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(['False Positive Rate', 'True Positive Rate', 'Threshold'])
+        for fp, tp, thresh in zip(fpr, tpr, thresholds):
+            writer.writerow([fp, tp, thresh])
+        writer.writerow([])  # 빈 줄 추가
+        writer.writerow(['AUC'])
+        writer.writerow([roc_auc])
+    # ROC 커브 시각화
     # plt.figure(figsize=(10,8))
     # plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc:.4f})')
     # plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
@@ -129,26 +171,16 @@ if __name__ == '__main__':
     # plt.savefig('roc_curve.png')
     # plt.show()
 
-    # '''Grad-CAM'''
-    # # 정면 이미지를 위한 Grad-CAM
-    # grad_cam = gradcam.GradCAM(model=combined_model.model1, target_layer=combined_model.model1.unet.bottleneck)
-    # gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='preap' , model=combined_model.model1, testloader=test_dataloader,combinedModel=combined_model)
+    '''Grad-CAM'''
+    # 정면 이미지를 위한 Grad-CAM
+    grad_cam = gradcam.GradCAM(model=combined_model.model1, target_layer=combined_model.model1.unet.bottleneck)
+    gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='preap' , model=combined_model.model1, testloader=test_dataloader,combinedModel=combined_model)
 
-    # ## 측면 이미지를 위한 Grad-CAM
-    # grad_cam = gradcam.GradCAM(model=combined_model.model2, target_layer=combined_model.model2.unet.bottleneck)
-    # gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='prelat', model=combined_model.model2, testloader=test_dataloader,combinedModel=combined_model)
+    ## 측면 이미지를 위한 Grad-CAM
+    grad_cam = gradcam.GradCAM(model=combined_model.model2, target_layer=combined_model.model2.unet.bottleneck)
+    gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='prelat', model=combined_model.model2, testloader=test_dataloader,combinedModel=combined_model)
     
 
-    # #gradcam for image only model
-    # '''Grad-CAM'''
-    # # 정면 이미지를 위한 Grad-CAM
-    # grad_cam = gradcamforimage.GradCAM(model=combined_model.model1, target_layer=combined_model.model1.unet.bottleneck)
-    # gradcamforimage.save_all_grad_cam_results(grad_cam=grad_cam, image_type='preap' , model=combined_model.model1, testloader=test_dataloader,combinedModel=combined_model)
-
-    # ## 측면 이미지를 위한 Grad-CAM
-    # grad_cam = gradcamforimage.GradCAM(model=combined_model.model2, target_layer=combined_model.model2.unet.bottleneck)
-    # gradcamforimage.save_all_grad_cam_results(grad_cam=grad_cam, image_type='prelat', model=combined_model.model2, testloader=test_dataloader,combinedModel=combined_model)
-    
     torch.cuda.empty_cache()
 
     gc.collect()
@@ -167,7 +199,7 @@ if __name__ == '__main__':
     # LimeTabularExplainer 초기화
     explainer = LimeTabularExplainer(
         training_data=training_data,  # 훈련 데이터 (numpy 배열)
-        feature_names=['age,', 'bmi'],  # 특성 이름 (리스트)
+        feature_names=['age,', 'bmi','presence','gender','side'],  # 특성 이름 (리스트)
         class_names=[0, 1],  # 클래스 이름 (리스트)
         mode="classification"  # 모드: 분류(classification) 또는 회귀(regression)
     )

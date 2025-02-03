@@ -145,7 +145,7 @@ def save_all_lime_results(explanations, age_scaler, bmi_scaler, base_dir="lime_r
             print(f"Error saving explanation for sample {sample_id}: {e}")
 
 
-def predict_fn_for_lime(data, preap_input, prelat_input, combinedModel, batch_size=16):
+def predict_fn_for_lime(data, preap_input, prelat_input, combinedModel, batch_size=32):
     # def predict_fn_for_lime(data, preap_input, prelat_input, combinedModel):
     """
     LIME이 호출할 예측 함수. 변형된 테이블 데이터와 고정된 preap_input 및 prelat_input을 사용하여 모델 예측 확률 반환.
@@ -180,7 +180,7 @@ def predict_fn_for_lime(data, preap_input, prelat_input, combinedModel, batch_si
 
     return np.array(probs_list)
 
-    # 원본 버젼
+    #원본 버젼
     # batch_size = clinic_input.size(0) # LIME이 변형한 클리닉 데이터와 batch를 맞춘다.
 
     # preap_input = preap_input.expand(batch_size, -1, -1, -1)  # 동일한 값을 배치 크기만큼 확장
@@ -193,7 +193,7 @@ def predict_fn_for_lime(data, preap_input, prelat_input, combinedModel, batch_si
     # return probs
 
 
-def explain_instance(testloader, explainer, combinedModel, device='cuda'):
+def explain_instance(testloader, explainer, combinedModel, device='cuda', max_samples= 20):
     """
        배치 데이터에서 각 샘플에 대해 LIME 설명을 생성.
 
@@ -206,20 +206,25 @@ def explain_instance(testloader, explainer, combinedModel, device='cuda'):
            list: 각 샘플에 대한 LIME 설명 객체 리스트.
        """
 
-    # combinedModel.eval()
-    # combinedModel.to(device)
+    combinedModel.eval()
+    combinedModel.to(device)
     explanations = []
+    samples_processed = 0
 
     for batch_idx, (ids, preap_inputs, prelat_inputs, clinic_inputs, labels) in tqdm(enumerate(testloader),
                                                                                      total=len(testloader),
                                                                                      desc="Calculating LIME"):
-
         preap_inputs = preap_inputs.to(device)
         prelat_inputs = prelat_inputs.to(device)
         clinic_inputs = clinic_inputs.to(device)
         labels = labels.to(device)
 
         for i in range(clinic_inputs.size(0)):
+
+            # 만약 이미 max_samples 개를 넘었다면 조기 종료
+            if samples_processed >= max_samples:
+                break
+
             # 현재 샘플 추출
             id = ids[i]
             preap_input = preap_inputs[i].unsqueeze(0)  # (1, C, H, W)
@@ -243,7 +248,11 @@ def explain_instance(testloader, explainer, combinedModel, device='cuda'):
                 num_features=num_features,
                 num_samples=num_samples  # perturbation 샘플 개수
             )
-
-            explanations.append((id, label, explanation))
+            explanations.append((sample_id, label, explanation))
+            samples_processed += 1
+            
+        # 배치 루프 탈출 조건
+        if samples_processed >= max_samples:
+            break
 
     return explanations
