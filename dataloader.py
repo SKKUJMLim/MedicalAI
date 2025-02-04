@@ -140,10 +140,9 @@ class MedicalDataset(data.Dataset):
         self.age_scaler = MinMaxScaler()  # Min-Max Scaler 사용
         self.clinic_info['Age\n(진료일기준)'] = self.age_scaler.fit_transform(column.values.reshape(-1, 1))
 
-        # 2. AO OTA Classification를 0~1 사이의 값으로 수치화한다.
+        # 2. AO OTA Classification를 0~1 사이의 값으로 수치화한다. (사용하지 않는다)
         self.label_encoder = LabelEncoder()
         self.scaler = MinMaxScaler()
-        
 
         # 3. BMI 정규화.
         bmi_info = self.clinic_info['BMI']
@@ -151,22 +150,40 @@ class MedicalDataset(data.Dataset):
         self.clinic_info['BMI'] = self.bmi_scaler.fit_transform(bmi_info.values.reshape(-1, 1))
         # print("Clinic Info DataFrame Head: \n", self.clinic_info.head())  # 처음 몇 개의 행을 출력
         # print("Clinic Info Columns: \n", self.clinic_info.columns)  # 컬럼 이름 출력
-        #4 성별 정규화화
-        gender_info = self.clinic_info['Gender']
-        self.clinic_info['Gender'] = self.label_encoder.fit_transform(gender_info)
-        #5 사이드 정규화
-        side_info = self.clinic_info['Side']
-        self.clinic_info['Side'] = self.label_encoder.fit_transform(side_info)
 
-        #6 presence 정규화
+        # 4. 성별 정규화화
+        gender_info = self.clinic_info['Gender']
+        self.gender_encoder = LabelEncoder()
+        self.clinic_info['Gender'] = self.gender_encoder.fit_transform(gender_info)
+
+        print("Gender : ")
+        print("LabelEncoder classes:", self.gender_encoder.classes_)
+        print("After encoding:", self.clinic_info['Gender'].unique())  # 인코딩 후 확인
+        # print("gender_info nan == " , gender_info.isna().sum())
+
+        # 5. 사이드 정규화
+        side_info = self.clinic_info['Side']
+        self.side_encoder = LabelEncoder()
+        self.clinic_info['Side'] = self.side_encoder.fit_transform(side_info)
+
+        print("Side : ")
+        print("LabelEncoder classes:", self.side_encoder.classes_)
+        print("After encoding:", self.clinic_info['Side'].unique())  # 인코딩 후 확인
+
+        # 6. presence 정규화
         presence_info = self.clinic_info['Presence of Subsequent \nor concomittent fracture']
-        self.clinic_info['Presence of Subsequent \nor concomittent fracture'] = self.label_encoder.fit_transform(presence_info)
-        
+        self.presence_encoder = LabelEncoder()
+        self.clinic_info['Presence of Subsequent \nor concomittent fracture'] = self.presence_encoder.fit_transform(presence_info)
+
+        print("presence : ")
+        print("LabelEncoder classes:", self.presence_encoder.classes_)
+        print("After encoding:", self.clinic_info['Presence of Subsequent \nor concomittent fracture'].unique())  # 인코딩 후 확인
+        print("="*10)
         # # 데이터 확인
         # print(self.clinic_info.head())
 
     def get_scaler(self):
-        return self.age_scaler, self.bmi_scaler, self.label_encoder, self.scaler
+        return self.age_scaler, self.bmi_scaler, self.gender_encoder, self.side_encoder, self.presence_encoder
 
     def __len__(self):
         """이미지 개수를 반환"""
