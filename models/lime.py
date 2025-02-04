@@ -248,7 +248,7 @@ def explain_instance(testloader, explainer, combinedModel, device='cuda', max_sa
                 num_features=num_features,
                 num_samples=num_samples  # perturbation 샘플 개수
             )
-            explanations.append((sample_id, label, explanation))
+            explanations.append((id, label, explanation))
             samples_processed += 1
             
         # 배치 루프 탈출 조건
