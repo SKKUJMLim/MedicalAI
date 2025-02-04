@@ -159,7 +159,7 @@ class MedicalDataset(data.Dataset):
         print("Gender : ")
         print("LabelEncoder classes:", self.gender_encoder.classes_)
         print("After encoding:", self.clinic_info['Gender'].unique())  # 인코딩 후 확인
-        # print("gender_info nan == " , gender_info.isna().sum())
+        print("gender_info nan == " , gender_info.isna().sum())
 
         # 5. 사이드 정규화
         side_info = self.clinic_info['Side']
@@ -169,11 +169,13 @@ class MedicalDataset(data.Dataset):
         print("Side : ")
         print("LabelEncoder classes:", self.side_encoder.classes_)
         print("After encoding:", self.clinic_info['Side'].unique())  # 인코딩 후 확인
+        print("Side nan == ", side_info.isna().sum())
 
         # 6. presence 정규화
         presence_info = self.clinic_info['Presence of Subsequent \nor concomittent fracture']
         self.presence_encoder = LabelEncoder()
         self.clinic_info['Presence of Subsequent \nor concomittent fracture'] = self.presence_encoder.fit_transform(presence_info)
+        print("presence_info nan == ", presence_info.isna().sum())
 
         print("presence : ")
         print("LabelEncoder classes:", self.presence_encoder.classes_)
