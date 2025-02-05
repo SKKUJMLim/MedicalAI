@@ -134,6 +134,7 @@ class MedicalDataset(data.Dataset):
         self.clinic_info['Side_original'] = self.clinic_info['Side']
         self.clinic_info['Presence of Subsequent \nor concomittent fracture_original'] = self.clinic_info['Presence of Subsequent \nor concomittent fracture']
 
+        '''연속형(Numerical) Feature 전처리'''
         # 1. 나이를 정규화한다
         column = self.clinic_info['Age\n(진료일기준)']
         # scaler = StandardScaler() # Z-score Scaler 사용
@@ -151,25 +152,28 @@ class MedicalDataset(data.Dataset):
         # print("Clinic Info DataFrame Head: \n", self.clinic_info.head())  # 처음 몇 개의 행을 출력
         # print("Clinic Info Columns: \n", self.clinic_info.columns)  # 컬럼 이름 출력
 
+        '''범주형(Categorical) Feature 전처리'''
         # 4. 성별 정규화화
         gender_info = self.clinic_info['Gender']
         self.gender_encoder = LabelEncoder()
-        self.clinic_info['Gender'] = self.gender_encoder.fit_transform(gender_info)
+        self.gender_encoder.fit([1, 2]) # 1 → 0 (Male), 2 → 1 (Female)로 변환되도록 클래스 순서를 수동 설정
+        self.clinic_info['Gender'] = self.gender_encoder.transform(gender_info)
 
-        print("Gender : ")
-        print("LabelEncoder classes:", self.gender_encoder.classes_)
+        print("- Gender : ")
+        print("gender_info nan == ", gender_info.isna().sum()) # NaN 체크
+        print("LabelEncoder classes:", self.gender_encoder.classes_) #  저장 확인
         print("After encoding:", self.clinic_info['Gender'].unique())  # 인코딩 후 확인
-        print("gender_info nan == " , gender_info.isna().sum())
 
         # 5. 사이드 정규화
         side_info = self.clinic_info['Side']
         self.side_encoder = LabelEncoder()
+        self.side_encoder.fit([1, 2]) # 1 → 0 (Right) , 2 → 1 (Left)로 변환되도록 클래스 순서를 수동 설정
         self.clinic_info['Side'] = self.side_encoder.fit_transform(side_info)
 
-        print("Side : ")
-        print("LabelEncoder classes:", self.side_encoder.classes_)
+        print("- Side : ")
+        print("Side nan == ", side_info.isna().sum()) # NaN 체크
+        print("LabelEncoder classes:", self.side_encoder.classes_)   #  저장 확인
         print("After encoding:", self.clinic_info['Side'].unique())  # 인코딩 후 확인
-        print("Side nan == ", side_info.isna().sum())
 
         # 6. presence 정규화
         presence_info = self.clinic_info['Presence of Subsequent \nor concomittent fracture']
@@ -177,10 +181,12 @@ class MedicalDataset(data.Dataset):
         self.clinic_info['Presence of Subsequent \nor concomittent fracture'] = self.presence_encoder.fit_transform(presence_info)
         print("presence_info nan == ", presence_info.isna().sum())
 
-        print("presence : ")
-        print("LabelEncoder classes:", self.presence_encoder.classes_)
+        print("- presence : ")
+        print("presence nan == ", presence_info.isna().sum()) # NaN 체크
+        print("LabelEncoder classes:", self.presence_encoder.classes_)  #  저장 확인
         print("After encoding:", self.clinic_info['Presence of Subsequent \nor concomittent fracture'].unique())  # 인코딩 후 확인
         print("="*10)
+
         # # 데이터 확인
         # print(self.clinic_info.head())
 
