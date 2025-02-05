@@ -157,7 +157,8 @@ class MedicalDataset(data.Dataset):
         gender_info = self.clinic_info['Gender']
         self.gender_encoder = LabelEncoder()
         self.gender_encoder.fit([1, 2]) # 1 → 0 (Male), 2 → 1 (Female)로 변환되도록 클래스 순서를 수동 설정
-        self.clinic_info['Gender'] = self.gender_encoder.transform(gender_info)
+        self.clinic_info['Gender'] = self.gender_encoder.fit_transform(gender_info)
+        print(self.clinic_info['Gender'])
 
         print("- Gender : ")
         print("gender_info nan == ", gender_info.isna().sum()) # NaN 체크
@@ -240,7 +241,7 @@ class MedicalDataset(data.Dataset):
         #subsequent = clinic_info_byID['Presence of Subsequent \nor concomittent fracture'].iloc[0]
         #ota = clinic_info_byID['AO OTA Classification'].iloc[0]
         comitfracture = clinic_info_byID['Presence of Subsequent \nor concomittent fracture'].iloc[0]
-        clinic_info = [age, bmi, presence,gender,side]
+        clinic_info = [age, bmi, gender, side, presence]
         clinic_info = torch.tensor(clinic_info, dtype=torch.float32)
 
         return id, preap_img_transformed, prelat_img_transformed, clinic_info, label

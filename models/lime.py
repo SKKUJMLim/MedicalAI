@@ -7,33 +7,65 @@ import sys
 import re
 
 
-num_samples = 5000
-# perturbation 샘플 개수
+num_samples = 10 # perturbation 샘플 개수
 
-def explain_with_original_data_and_ranges(explanation, age_scaler, bmi_scaler):
+def explain_with_original_data_and_ranges(explanation, age_scaler, bmi_scaler, gender_encoder, side_encoder, presence_encoder):
     """
     정규화된 데이터로 모델 예측, 원본 값으로 설명 기준을 변환.
 
     Args:
-        explanation: 정규화된 데이터에 대한 LIME 결과
-        age_scaler: 정규화에 사용한 Scaler 객체 (MinMaxScaler 또는 StandardScaler).
-        bmi_scaler: 정규화에 사용한 Scaler 객체 (MinMaxScaler 또는 StandardScaler).
+        explanation: 정규화된 데이터에 대한 LIME 결과.
+        age_scaler, bmi_scaler: 정규화된 연속형 변수의 Scaler 객체.
+        gender_encoder, side_encoder, presence_encoder: 범주형 변수 복원을 위한 LabelEncoder 객체.
 
     Returns:
-        변환된 LIME 설명 리스트 (feature, weight 형태).
+        변환된 LIME 설명 리스트 (feature, 원래값, 변환된값, weight 형태).
     """
     import re
+
+    # **원래 feature 값 가져오기**
+    normalized_instance = np.array(explanation.domain_mapper.feature_values).reshape(1, -1)  # (1, feature_dim)
+
+    # 연속형 변수(Age, BMI)는 Scaler를 사용하여 원래 값으로 변환
+    original_values = [
+        age_scaler.inverse_transform(normalized_instance[:, [0]].astype(float))[0][0],  # Age
+        bmi_scaler.inverse_transform(normalized_instance[:, [1]].astype(float))[0][0]   # BMI
+    ]
+
+    gender_value = -1  # 예외처리된 경우를 구분할 수 있도록 기본값 설정 (ex: -1)
+    side_value = -1  # 예외처리된 경우를 구분할 수 있도록 기본값 설정 (ex: -1)
+    presence_value = -1  # 예외처리된 경우를 구분할 수 있도록 기본값 설정 (ex: -1)
+
+    print("gender_value == ", normalized_instance[:, 2][0])
+    print("side_value == ", normalized_instance[:, 3][0])
+    print("presence_value == ", normalized_instance[:, 4][0])
+
+    # 범주형 변수(Gender, Side, Presence)는 LabelEncoder를 사용하여 원래 값 복원
+    try:
+        gender_value = int(float(normalized_instance[:, 2][0]))
+        side_value = int(float(normalized_instance[:, 3][0]))
+        presence_value = int(float(normalized_instance[:, 4][0]))
+
+        gender_text = gender_encoder.inverse_transform(np.array([gender_value]).astype(int))[0]
+        side_text = side_encoder.inverse_transform(np.array([side_value]).astype(int))[0]
+        presence_text = presence_encoder.inverse_transform(np.array([presence_value]).astype(int))[0]
+    except ValueError as e:
+        print(f"Error converting categorical values: {e}")
+        gender_text, side_text, presence_text = "Unknown", "Unknown", "Unknown"
 
     # 문자열에서 숫자만 추출하는 함수
     def extract_float(value):
         match = re.search(r"[-+]?\d*\.\d+|\d+", value)
         return float(match.group()) if match else None
 
-    # 숫자를 변환하는 함수
+    # 숫자를 변환하는 함수 (연속형 변수만)
     def transform_number(value, scaler):
         number = extract_float(value)
         if number is not None:
-            return f"{scaler.inverse_transform([[number]])[0][0]:.2f}"
+            try:
+                return f"{scaler.inverse_transform(np.array([[number]]))[0][0]:.2f}"
+            except ValueError:
+                return value
         return value
 
     # 변환된 설명 리스트
@@ -41,76 +73,71 @@ def explain_with_original_data_and_ranges(explanation, age_scaler, bmi_scaler):
 
     # 설명 수정: 정규화된 기준을 원본 값으로 변환
     for feature, weight in explanation.as_list():
+        original_value = None  # 원래 feature 값
+        transformed_value = None  # 변환된 값
+
         if 'age' in feature:
             scaler = age_scaler
+            original_value = original_values[0]  # Age 원래 값
+            transformed_value = transform_number(feature, scaler)
+
         elif 'bmi' in feature:
             scaler = bmi_scaler
+            original_value = original_values[1]  # BMI 원래 값
+            transformed_value = transform_number(feature, scaler)
+
+        elif 'gender' in feature:
+            original_value = gender_text  # Gender 원래 값
+            transformed_value = f"{gender_value} ({gender_text})"
+
+        elif 'side' in feature:
+            original_value = side_text  # Side 원래 값
+            transformed_value = f"{side_value} ({side_text})"
+
+        elif 'presence' in feature:
+            original_value = presence_text  # Presence 원래 값
+            transformed_value = f"{presence_value} ({presence_text})"
+
         else:
-            print(f"LIME inverse_transform Error for feature: {feature}")
-            transformed_explanation.append((feature, weight))
+            transformed_explanation.append((feature, None, None, weight))
             continue
 
-        # feature 내 숫자만 변환
-        modified_feature = re.sub(
-            r"[-+]?\d*\.\d+|\d+",  # 숫자 패턴
-            lambda x: transform_number(x.group(), scaler),  # 숫자 변환
-            feature
-        )
-
-        # 변환된 feature와 weight 추가
-        transformed_explanation.append((modified_feature, weight))
+        # 변환된 feature 추가
+        transformed_explanation.append((feature, original_value, transformed_value, weight))
 
     return transformed_explanation
 
 def save_transformed_explanation_html(transformed_explanation, file_name):
     """
-    변환된 설명을 HTML 파일로 저장.
+    변환된 설명을 HTML 파일로 저장하며, 컬럼 순서를 `age -> gender -> side -> presence`로 정렬.
 
     Args:
-        transformed_explanation: 변환된 설명 리스트 (feature, weight 형태).
+        transformed_explanation: 변환된 설명 리스트 (feature, 원래값, 변환된값, weight 형태).
         file_name: 저장할 파일 이름.
     """
+    # 🎯 **순서대로 정렬**
+    sorted_features = ["age", "bmi", "gender", "side", "presence"]  # 원하는 정렬 순서
+    sorted_explanation = sorted(
+        transformed_explanation,
+        key=lambda x: sorted_features.index(x[0].split(" ")[0]) if x[0].split(" ")[0] in sorted_features else len(sorted_features)
+    )
+
     with open(file_name, 'w') as f:
-        f.write("<html><body><h2>Transformed Explanation</h2><ul>\n")
-        for feature, weight in transformed_explanation:
-            f.write(f"<li>{feature}: {weight:.4f}</li>\n")
-        f.write("</ul></body></html>")
-    # print(f"Transformed explanation saved to {file_name}")
+        f.write("<html><body><h2>Transformed Explanation</h2>\n")
+        f.write("<table border='1'>\n")
+        f.write("<tr><th>Feature</th><th>Original Value</th><th>Transformed Value</th><th>Weight</th></tr>\n")
+
+        for feature, original_value, transformed_value, weight in sorted_explanation:
+            original_value = original_value if original_value is not None else "N/A"
+            transformed_value = transformed_value if transformed_value is not None else "N/A"
+            weight = f"{weight:.4f}" if weight is not None else "N/A"
+
+            f.write(f"<tr><td>{feature}</td><td>{original_value}</td><td>{transformed_value}</td><td>{weight}</td></tr>\n")
+
+        f.write("</table></body></html>")
 
 
-def save_all_lime_results_with_conversion(explanations, age_scaler, bmi_scaler, base_dir="lime_results"):
-    """
-    모든 LIME 결과를 클래스별 디렉토리에 HTML 파일로 저장.
-    정규화된 데이터를 원본 값으로 변환하여 저장.
-
-    Args:
-        explanations: LIME 결과 리스트 (sample_id, label, explanation 형태).
-        age_scaler: 정규화에 사용한 Scaler 객체 (MinMaxScaler 또는 StandardScaler).
-        bmi_scaler: 정규화에 사용한 Scaler 객체 (MinMaxScaler 또는 StandardScaler).
-        base_dir: 결과를 저장할 기본 디렉토리.
-    """
-    # 클래스별 디렉토리 생성
-    os.makedirs(f"{base_dir}/0", exist_ok=True)
-    os.makedirs(f"{base_dir}/1", exist_ok=True)
-
-    # 각 샘플에 대해 LIME 결과 저장
-    for sample_id, label, explanation in explanations:
-        # 정규화된 데이터에서 원본 값으로 설명 기준을 변환
-        transformed_explanation = explain_with_original_data_and_ranges(explanation, age_scaler, bmi_scaler)
-
-        # 파일 경로 설정
-        file_name = f"{base_dir}/{label}/lime_explanation_sample_{sample_id}.html"
-
-        # HTML 파일로 저장
-        try:
-            explanation.save_to_file(file_name)
-            transformed_explanation.save_to_file(file_name)
-            print(f"Explanation for sample {sample_id} saved to {file_name}")
-        except Exception as e:
-            print(f"Error saving explanation for sample {sample_id}: {e}")
-
-
-def save_all_lime_results(explanations, age_scaler, bmi_scaler, base_dir="lime_results"):
+def save_all_lime_results(explanations, age_scaler, bmi_scaler, gender_encoder, side_encoder, presence_encoder, base_dir="lime_results"):
     """
     모든 LIME 결과를 클래스별 디렉토리에 HTML 파일로 저장.
 
@@ -127,14 +154,13 @@ def save_all_lime_results(explanations, age_scaler, bmi_scaler, base_dir="lime_r
         # 파일 경로 설정
         file_name = f"{base_dir}/{label}/lime_explanation_sample_{sample_id}.html"
 
-        # print("before===")
-        # print(explanation.local_exp)
-
         # 정규화된 데이터에서 원본 값으로 설명 기준을 변환.
-        transformed_explanation = explain_with_original_data_and_ranges(explanation, age_scaler, bmi_scaler)
-        #
-        # print("after===")
-        # print(transformed_explanation)
+        transformed_explanation = explain_with_original_data_and_ranges(explanation,
+                                                                        age_scaler=age_scaler,
+                                                                        bmi_scaler=bmi_scaler,
+                                                                        gender_encoder=gender_encoder,
+                                                                        side_encoder=side_encoder,
+                                                                        presence_encoder=presence_encoder)
 
         # HTML 파일로 저장
         try:
@@ -240,7 +266,7 @@ def explain_instance(testloader, explainer, combinedModel, device='cuda', max_sa
                 # print("lime_predict_fn data == ", data)
                 return predict_fn_for_lime(data, preap_input, prelat_input, combinedModel)
 
-            num_features = clinic_input.shape[0]  # 설명할 클리닉 데이터 feature 개수 (age, bmi)
+            num_features = clinic_input.shape[0]  # 설명할 클리닉 데이터 feature 개수
 
             explanation = explainer.explain_instance(
                 clinic_input,  # 설명할 클리닉 데이터 (개별 샘플)

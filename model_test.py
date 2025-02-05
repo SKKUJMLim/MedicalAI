@@ -9,7 +9,7 @@ from sklearn.metrics import confusion_matrix, roc_curve, auc
 import matplotlib.pyplot as plt
 import seaborn as sns
 from dataloader import get_dataloader
-from models import combinedModel, U_Net, clinicinfo, gradcam,lime, gradcamforimage 
+from models import combinedModel, U_Net, clinicinfo, gradcam,lime
 from lime.lime_tabular import LimeTabularExplainer
 import gc
 
@@ -59,7 +59,8 @@ if __name__ == '__main__':
 
     # Load the best model
     #combined_model_image.load_state_dict(torch.load(r"/sehun/medicalai/medical_server/best_model_onlyimage.pth", map_location=device, weights_only = True))
-    combined_model.load_state_dict(torch.load(r'/sehun/medicalai/medical_server/plus_hidden_3unprebest_model.pth', map_location=device, weights_only = True))
+    # combined_model.load_state_dict(torch.load('plus_hidden_3unprebest_model.pth', map_location=device, weights_only = True))
+    combined_model.load_state_dict(torch.load('plus_hidden_3unprebest_model.pth', map_location='cpu', weights_only=True))
     combined_model.to(device)
     combined_model.eval()
     combined_model_image.to(device)

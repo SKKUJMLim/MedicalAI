@@ -40,7 +40,7 @@ if __name__ == '__main__':
     # resnet.test()
     preap_net = resnet.resnet34(pretrained=True)
     prelat_net= resnet.resnet34(pretrained=True)
-    clinicinfo_net = clinicinfo.MLP(input_size=2, hidden_size=2, output_size=1)
+    clinicinfo_net = clinicinfo.MLP(input_size=5, hidden_size=3, output_size=1)
     combined_model = combinedModel.CombinedResNet18(preap_net, prelat_net, clinicinfo_net, num_classes)
 
     # vgg.test()
@@ -180,18 +180,36 @@ if __name__ == '__main__':
     training_data = []
     for _, (_, _, _, clinic_inputs, _) in enumerate(test_dataloader):
         training_data.append(clinic_inputs.cpu().numpy())
-    training_data = np.vstack(training_data)
 
-    # LimeTabularExplainer 초기화
+    training_data = np.vstack(training_data)
+    age_scaler, bmi_scaler, gender_encoder, side_encoder, presence_encoder = test_dataloader.dataset.get_scaler()
+
+    # 🎯 범주형 Feature 인덱스 설정
+    categorical_features = [2, 3, 4]  # gender(2), side(3), presence(4)
+
+    # 🎯 범주형 변수의 원래 값 설정 (LabelEncoder 사용)
+    categorical_names = {
+        2: gender_encoder.classes_.tolist(),  # 🚀 LabelEncoder에서 직접 클래스 목록 가져오기
+        3: side_encoder.classes_.tolist(),  # 🚀 LabelEncoder에서 직접 클래스 목록 가져오기
+        4: presence_encoder.classes_.tolist()  # 🚀 LabelEncoder에서 직접 클래스 목록 가져오기
+    }
+
+    # 🎯 LimeTabularExplainer 초기화
     explainer = LimeTabularExplainer(
-        training_data=training_data,  # 훈련 데이터 (numpy 배열)
-        feature_names=['age,', 'bmi'],  # 특성 이름 (리스트)
-        class_names=[0, 1],  # 클래스 이름 (리스트)
-        mode="classification"  # 모드: 분류(classification) 또는 회귀(regression)
+        training_data=training_data,
+        feature_names=['age', 'bmi', 'gender', 'side', 'presence'],
+        class_names=[0, 1],
+        categorical_features=categorical_features,  # 🚀 범주형 Feature 인덱스 설정
+        categorical_names=categorical_names,  # 🚀 범주형 변수의 원래 값 설정
+        mode="classification"
     )
 
     # 설명 생성
-    explanations = lime.explain_instance(test_dataloader, explainer, combined_model, device='cuda')
-    age_scaler, bmi_scaler = test_dataloader.dataset.get_scaler()
-    lime.save_all_lime_results(explanations,age_scaler=age_scaler, bmi_scaler=bmi_scaler)
+    explanations = lime.explain_instance(test_dataloader, explainer, combined_model, device='cuda', max_samples=5000)
+    lime.save_all_lime_results(explanations,
+                               age_scaler=age_scaler,
+                               bmi_scaler=bmi_scaler,
+                               gender_encoder=gender_encoder,
+                               side_encoder=side_encoder,
+                               presence_encoder=presence_encoder)
 
