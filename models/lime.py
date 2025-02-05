@@ -1,13 +1,13 @@
 import torch
-import torch.nn as nn
 import numpy as np
 from tqdm import tqdm
 import os
-import sys
-import re
+import matplotlib.pyplot as plt
+import base64
+from io import BytesIO
 
 
-num_samples = 10 # perturbation 샘플 개수
+num_samples = 5000 # perturbation 샘플 개수
 
 def explain_with_original_data_and_ranges(explanation, age_scaler, bmi_scaler, gender_encoder, side_encoder, presence_encoder):
     """
@@ -32,40 +32,43 @@ def explain_with_original_data_and_ranges(explanation, age_scaler, bmi_scaler, g
         bmi_scaler.inverse_transform(normalized_instance[:, [1]].astype(float))[0][0]   # BMI
     ]
 
-    gender_value = -1  # 예외처리된 경우를 구분할 수 있도록 기본값 설정 (ex: -1)
-    side_value = -1  # 예외처리된 경우를 구분할 수 있도록 기본값 설정 (ex: -1)
-    presence_value = -1  # 예외처리된 경우를 구분할 수 있도록 기본값 설정 (ex: -1)
-
-    print("gender_value == ", normalized_instance[:, 2][0])
-    print("side_value == ", normalized_instance[:, 3][0])
-    print("presence_value == ", normalized_instance[:, 4][0])
-
-    # 범주형 변수(Gender, Side, Presence)는 LabelEncoder를 사용하여 원래 값 복원
-    try:
-        gender_value = int(float(normalized_instance[:, 2][0]))
-        side_value = int(float(normalized_instance[:, 3][0]))
-        presence_value = int(float(normalized_instance[:, 4][0]))
-
-        gender_text = gender_encoder.inverse_transform(np.array([gender_value]).astype(int))[0]
-        side_text = side_encoder.inverse_transform(np.array([side_value]).astype(int))[0]
-        presence_text = presence_encoder.inverse_transform(np.array([presence_value]).astype(int))[0]
-    except ValueError as e:
-        print(f"Error converting categorical values: {e}")
-        gender_text, side_text, presence_text = "Unknown", "Unknown", "Unknown"
-
     # 문자열에서 숫자만 추출하는 함수
     def extract_float(value):
         match = re.search(r"[-+]?\d*\.\d+|\d+", value)
         return float(match.group()) if match else None
 
-    # 숫자를 변환하는 함수 (연속형 변수만)
-    def transform_number(value, scaler):
-        number = extract_float(value)
-        if number is not None:
-            try:
-                return f"{scaler.inverse_transform(np.array([[number]]))[0][0]:.2f}"
-            except ValueError:
-                return value
+    # 연속형 변수 변환 함수
+    def transform_number(value, scaler, feature_name):
+        """
+        부등호와 숫자를 개별적으로 변환하여 원래 값을 복원.
+
+        Args:
+            value: LIME이 생성한 feature string (예: "0.28 < bmi <= 0.37", "bmi > 0.37").
+            scaler: 변환할 Scaler 객체.
+            feature_name: 변환할 feature 이름 (예: 'age', 'bmi').
+
+        Returns:
+            변환된 값 (예: "23.79 < bmi <= 26.64" 또는 "bmi > 26.64").
+        """
+        # 1. 범위 조건 패턴 (0.28 < bmi <= 0.37)
+        range_pattern = r"([-+]?\d*\.\d+|\d+)\s*([<>]=?)\s*(\w+)\s*([<>]=?)\s*([-+]?\d*\.\d+|\d+)"
+        range_match = re.search(range_pattern, value)
+
+        if range_match:
+            lower_num, lower_op, var, upper_op, upper_num = range_match.groups()
+            lower_bound = scaler.inverse_transform([[float(lower_num)]])[0][0]
+            upper_bound = scaler.inverse_transform([[float(upper_num)]])[0][0]
+            return f"{lower_bound:.2f} {lower_op} {var} {upper_op} {upper_bound:.2f}"
+
+        # 2. 단일 조건 패턴 (bmi <= 0.37)
+        single_pattern = r"(\w+)\s*([<>]=?)\s*([-+]?\d*\.\d+|\d+)"
+        single_match = re.search(single_pattern, value)
+
+        if single_match:
+            var, op, num = single_match.groups()
+            transformed_value = scaler.inverse_transform([[float(num)]])[0][0]
+            return f"{var} {op} {transformed_value:.2f}"
+
         return value
 
     # 변환된 설명 리스트
@@ -79,25 +82,23 @@ def explain_with_original_data_and_ranges(explanation, age_scaler, bmi_scaler, g
         if 'age' in feature:
             scaler = age_scaler
             original_value = original_values[0]  # Age 원래 값
-            transformed_value = transform_number(feature, scaler)
+            transformed_value = transform_number(feature, scaler, 'age')
 
         elif 'bmi' in feature:
             scaler = bmi_scaler
             original_value = original_values[1]  # BMI 원래 값
-            transformed_value = transform_number(feature, scaler)
-
+            transformed_value = transform_number(feature, scaler, 'bmi')
         elif 'gender' in feature:
-            original_value = gender_text  # Gender 원래 값
-            transformed_value = f"{gender_value} ({gender_text})"
+            original_value = "Male" if '1' in feature else "Female"
+            transformed_value = f"{feature.split('=')[-1]} ({original_value})"
 
         elif 'side' in feature:
-            original_value = side_text  # Side 원래 값
-            transformed_value = f"{side_value} ({side_text})"
+            original_value = "Right" if '1' in feature else "Left"
+            transformed_value = f"{feature.split('=')[-1]} ({original_value})"
 
         elif 'presence' in feature:
-            original_value = presence_text  # Presence 원래 값
-            transformed_value = f"{presence_value} ({presence_text})"
-
+            original_value = "Subsequent x" if '0' in feature else "Subsequent o"
+            transformed_value = f"{feature.split('=')[-1]} ({original_value})"
         else:
             transformed_explanation.append((feature, None, None, weight))
             continue
@@ -107,35 +108,56 @@ def explain_with_original_data_and_ranges(explanation, age_scaler, bmi_scaler, g
 
     return transformed_explanation
 
-def save_transformed_explanation_html(transformed_explanation, file_name):
-    """
-    변환된 설명을 HTML 파일로 저장하며, 컬럼 순서를 `age -> gender -> side -> presence`로 정렬.
+import matplotlib.pyplot as plt
+import base64
+from io import BytesIO
 
-    Args:
-        transformed_explanation: 변환된 설명 리스트 (feature, 원래값, 변환된값, weight 형태).
-        file_name: 저장할 파일 이름.
-    """
-    # 🎯 **순서대로 정렬**
-    sorted_features = ["age", "bmi", "gender", "side", "presence"]  # 원하는 정렬 순서
-    sorted_explanation = sorted(
-        transformed_explanation,
-        key=lambda x: sorted_features.index(x[0].split(" ")[0]) if x[0].split(" ")[0] in sorted_features else len(sorted_features)
-    )
 
+
+def save_transformed_explanation_html(transformed_explanation, file_name, prediction_probabilities):
+    # **1. Prediction Probabilities 막대그래프 생성**
+    fig, ax = plt.subplots(figsize=(3, 2))
+    classes = [f"Class {i}" for i in range(len(prediction_probabilities))]
+    ax.bar(classes, prediction_probabilities, color=['blue', 'orange'])
+    ax.set_ylim(0, 1)
+    ax.set_ylabel("Probability")
+    ax.set_title("Prediction Probabilities")
+
+    # **2. 그래프를 이미지 파일이 아닌 base64로 변환**
+    buf = BytesIO()
+    plt.savefig(buf, format="png", bbox_inches='tight')
+    buf.seek(0)
+    encoded_image = base64.b64encode(buf.getvalue()).decode("utf-8")
+    plt.close(fig)  # 그래프 메모리 해제
+
+    # **3. HTML 생성**
     with open(file_name, 'w') as f:
         f.write("<html><body><h2>Transformed Explanation</h2>\n")
-        f.write("<table border='1'>\n")
-        f.write("<tr><th>Feature</th><th>Original Value</th><th>Transformed Value</th><th>Weight</th></tr>\n")
 
-        for feature, original_value, transformed_value, weight in sorted_explanation:
+        #  Prediction Probabilities 추가 (막대그래프 포함)
+        f.write("<h3>Prediction Probabilities</h3>\n")
+        f.write(f'<img src="data:image/png;base64,{encoded_image}" alt="Prediction Probabilities">\n')
+
+        #  Feature Contributions 테이블
+        f.write("<h3>Feature Contributions</h3>\n")
+        f.write("<table border='1'>\n")
+        f.write("<tr><th>Feature</th><th>Original Value</th><th>Transformed Value</th><th>Weight</th><th>Contribution</th></tr>\n")
+
+        for feature, original_value, transformed_value, weight in transformed_explanation:
             original_value = original_value if original_value is not None else "N/A"
             transformed_value = transformed_value if transformed_value is not None else "N/A"
-            weight = f"{weight:.4f}" if weight is not None else "N/A"
+            weight_str = f"{weight:.6f}" if weight is not None else "N/A"
 
-            f.write(f"<tr><td>{feature}</td><td>{original_value}</td><td>{transformed_value}</td><td>{weight}</td></tr>\n")
+            # Weight의 부호만 판단하여 기여도 결정
+            try:
+                weight_float = float(weight)
+                contribution = "Class 1[Surgery not required (No)] " if weight_float > 0 else "Class 0 [Surgery required (Yes)]"
+            except ValueError:
+                contribution = "N/A"
+
+            f.write(f"<tr><td>{feature}</td><td>{original_value}</td><td>{transformed_value}</td><td>{weight_str}</td><td>{contribution}</td></tr>\n")
 
         f.write("</table></body></html>")
-
 
 def save_all_lime_results(explanations, age_scaler, bmi_scaler, gender_encoder, side_encoder, presence_encoder, base_dir="lime_results"):
     """
@@ -154,6 +176,9 @@ def save_all_lime_results(explanations, age_scaler, bmi_scaler, gender_encoder, 
         # 파일 경로 설정
         file_name = f"{base_dir}/{label}/lime_explanation_sample_{sample_id}.html"
 
+        # 모델 예측 확률 가져오기
+        prediction_probabilities = explanation.predict_proba
+
         # 정규화된 데이터에서 원본 값으로 설명 기준을 변환.
         transformed_explanation = explain_with_original_data_and_ranges(explanation,
                                                                         age_scaler=age_scaler,
@@ -165,7 +190,7 @@ def save_all_lime_results(explanations, age_scaler, bmi_scaler, gender_encoder, 
         # HTML 파일로 저장
         try:
             explanation.save_to_file(file_name)
-            save_transformed_explanation_html(transformed_explanation, f"{file_name}.html")
+            save_transformed_explanation_html(transformed_explanation, f"{file_name}.html", prediction_probabilities)
             # print(f"Explanation for sample {sample_id} saved to {file_name}")
         except Exception as e:
             print(f"Error saving explanation for sample {sample_id}: {e}")
@@ -186,7 +211,7 @@ def predict_fn_for_lime(data, preap_input, prelat_input, combinedModel, batch_si
         확률값 배열 (numpy).
     """
 
-    combinedModel.to(preap_input.device)
+    # combinedModel.to(preap_input.device)
 
     # print("data.shape == ", data.shape) # LIME이 변형한 클리닉 데이터이기 때문에 차원이 높다
 

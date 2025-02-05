@@ -158,7 +158,7 @@ class MedicalDataset(data.Dataset):
         self.gender_encoder = LabelEncoder()
         self.gender_encoder.fit([1, 2]) # 1 → 0 (Male), 2 → 1 (Female)로 변환되도록 클래스 순서를 수동 설정
         self.clinic_info['Gender'] = self.gender_encoder.fit_transform(gender_info)
-        print(self.clinic_info['Gender'])
+
 
         print("- Gender : ")
         print("gender_info nan == ", gender_info.isna().sum()) # NaN 체크

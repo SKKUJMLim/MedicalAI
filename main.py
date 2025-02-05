@@ -184,17 +184,19 @@ if __name__ == '__main__':
     training_data = np.vstack(training_data)
     age_scaler, bmi_scaler, gender_encoder, side_encoder, presence_encoder = test_dataloader.dataset.get_scaler()
 
-    # 🎯 범주형 Feature 인덱스 설정
+    # 범주형 Feature 인덱스 설정
     categorical_features = [2, 3, 4]  # gender(2), side(3), presence(4)
 
-    # 🎯 범주형 변수의 원래 값 설정 (LabelEncoder 사용)
+    training_data[:, categorical_features] = training_data[:, categorical_features].astype(int)
+
+    # 범주형 변수의 원래 값 설정 (LabelEncoder 사용)
     categorical_names = {
-        2: gender_encoder.classes_.tolist(),  # 🚀 LabelEncoder에서 직접 클래스 목록 가져오기
-        3: side_encoder.classes_.tolist(),  # 🚀 LabelEncoder에서 직접 클래스 목록 가져오기
-        4: presence_encoder.classes_.tolist()  # 🚀 LabelEncoder에서 직접 클래스 목록 가져오기
+        2: gender_encoder.classes_.tolist(),  # LabelEncoder에서 직접 클래스 목록 가져오기
+        3: side_encoder.classes_.tolist(),    # LabelEncoder에서 직접 클래스 목록 가져오기
+        4: presence_encoder.classes_.tolist() # LabelEncoder에서 직접 클래스 목록 가져오기
     }
 
-    # 🎯 LimeTabularExplainer 초기화
+    # LimeTabularExplainer 초기화
     explainer = LimeTabularExplainer(
         training_data=training_data,
         feature_names=['age', 'bmi', 'gender', 'side', 'presence'],
