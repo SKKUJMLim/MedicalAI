@@ -6,10 +6,11 @@ import matplotlib.pyplot as plt
 import base64
 from io import BytesIO
 
+num_samples = 20  # perturbation 샘플 개수
 
-num_samples = 5000 # perturbation 샘플 개수
 
-def explain_with_original_data_and_ranges(explanation, age_scaler, bmi_scaler, gender_encoder, side_encoder, presence_encoder):
+def explain_with_original_data_and_ranges(explanation, age_scaler, bmi_scaler, gender_encoder, side_encoder,
+                                          presence_encoder):
     """
     정규화된 데이터로 모델 예측, 원본 값으로 설명 기준을 변환.
 
@@ -29,7 +30,7 @@ def explain_with_original_data_and_ranges(explanation, age_scaler, bmi_scaler, g
     # 연속형 변수(Age, BMI)는 Scaler를 사용하여 원래 값으로 변환
     original_values = [
         age_scaler.inverse_transform(normalized_instance[:, [0]].astype(float))[0][0],  # Age
-        bmi_scaler.inverse_transform(normalized_instance[:, [1]].astype(float))[0][0]   # BMI
+        bmi_scaler.inverse_transform(normalized_instance[:, [1]].astype(float))[0][0]  # BMI
     ]
 
     # 문자열에서 숫자만 추출하는 함수
@@ -108,58 +109,151 @@ def explain_with_original_data_and_ranges(explanation, age_scaler, bmi_scaler, g
 
     return transformed_explanation
 
-import matplotlib.pyplot as plt
-import base64
-from io import BytesIO
-
-
 
 def save_transformed_explanation_html(transformed_explanation, file_name, prediction_probabilities):
-    # **1. Prediction Probabilities 막대그래프 생성**
+    """
+    HTML 파일에 변환된 LIME 설명 및 상대적 중요도 그래프 저장.
+    """
+
+    # **1. Prediction Probabilities 그래프 생성**
     fig, ax = plt.subplots(figsize=(3, 2))
     classes = [f"Class {i}" for i in range(len(prediction_probabilities))]
-    ax.bar(classes, prediction_probabilities, color=['blue', 'orange'])
+    bars = ax.bar(classes, prediction_probabilities, color=['blue', 'orange'])
     ax.set_ylim(0, 1)
     ax.set_ylabel("Probability")
     ax.set_title("Prediction Probabilities")
 
-    # **2. 그래프를 이미지 파일이 아닌 base64로 변환**
+    # **1.1 막대 위에 클래스명 추가**
+    for bar, class_name in zip(bars, classes):
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width() / 2, height + 0.02, class_name, ha='center', fontsize=10,
+                fontweight='bold')
+
+    # **2. Prediction Probabilities 그래프 → Base64 변환**
     buf = BytesIO()
     plt.savefig(buf, format="png", bbox_inches='tight')
     buf.seek(0)
-    encoded_image = base64.b64encode(buf.getvalue()).decode("utf-8")
-    plt.close(fig)  # 그래프 메모리 해제
+    encoded_prob_image = base64.b64encode(buf.getvalue()).decode("utf-8")
+    plt.close(fig)
 
-    # **3. HTML 생성**
+    # **3. clinic_inputs Feature Importance 계산**
+    feature_importance = compute_relative_importance(transformed_explanation)
+
+    # **3.1 각 Feature가 Class 0인지 Class 1에 기여하는지 추출 (올바르게 수정된 부분)**
+    feature_contributions = {}
+    for feature, _, _, weight in transformed_explanation:
+        weight_float = float(weight) if weight is not None else 0.0
+        contribution = "Class 1 [Surgery required (Yes)]" if weight_float > 0 else "Class 0 [Surgery not required (No)]"
+        feature_contributions[feature] = contribution
+
+    # **4. Feature Importance 바 그래프 생성 (Class별 색상 반영)**
+    encoded_importance_image = plot_relative_importance(feature_importance, feature_contributions)
+
+    # **5. HTML 생성**
     with open(file_name, 'w') as f:
         f.write("<html><body><h2>Transformed Explanation</h2>\n")
 
-        #  Prediction Probabilities 추가 (막대그래프 포함)
+        # **Prediction Probabilities 그래프**
         f.write("<h3>Prediction Probabilities</h3>\n")
-        f.write(f'<img src="data:image/png;base64,{encoded_image}" alt="Prediction Probabilities">\n')
+        f.write(f'<img src="data:image/png;base64,{encoded_prob_image}" alt="Prediction Probabilities">\n')
 
-        #  Feature Contributions 테이블
+        # **Relative Importance 바 그래프 (새로운 <h3> 태그 추가)**
+        f.write("<h3>Relative Importance of Features</h3>\n")
+        f.write(f'<img src="data:image/png;base64,{encoded_importance_image}" alt="Relative Importance">\n')
+
+        # **Feature Contributions Table**
         f.write("<h3>Feature Contributions</h3>\n")
         f.write("<table border='1'>\n")
-        f.write("<tr><th>Feature</th><th>Original Value</th><th>Transformed Value</th><th>Weight</th><th>Contribution</th></tr>\n")
+        f.write(
+            "<tr><th>Feature</th><th>Original Value</th><th>Transformed Value</th><th>Weight</th><th>Contribution</th><th>Relative Importance</th></tr>\n")
+
+        clinic_features = ['age', 'bmi', 'gender', 'side', 'presence']
 
         for feature, original_value, transformed_value, weight in transformed_explanation:
             original_value = original_value if original_value is not None else "N/A"
             transformed_value = transformed_value if transformed_value is not None else "N/A"
             weight_str = f"{weight:.6f}" if weight is not None else "N/A"
 
-            # Weight의 부호만 판단하여 기여도 결정
+            # **Weight 부호만 판단하여 기여도 결정**
             try:
                 weight_float = float(weight)
-                contribution = "Class 1[Surgery not required (No)] " if weight_float > 0 else "Class 0 [Surgery required (Yes)]"
+                contribution = "Class 1 [Surgery required (Yes)]" if weight_float > 0 else "Class 0 [Surgery not required (No)]"
             except ValueError:
                 contribution = "N/A"
 
-            f.write(f"<tr><td>{feature}</td><td>{original_value}</td><td>{transformed_value}</td><td>{weight_str}</td><td>{contribution}</td></tr>\n")
+            # **Relative Importance 값 찾기 (정확한 매칭)**
+            relative_importance = 0.0
+            for key in clinic_features:
+                if key in feature:  # 정확한 키워드 포함 여부 확인
+                    relative_importance = feature_importance.get(key, 0.0)
+                    break  # 하나만 매칭되면 중단
+
+            rel_importance_str = f"{relative_importance:.6f}"  # 🔥 소수점 6자리 출력
+
+            f.write(
+                f"<tr><td>{feature}</td><td>{original_value}</td><td>{transformed_value}</td><td>{weight_str}</td><td>{contribution}</td><td>{rel_importance_str}</td></tr>\n")
 
         f.write("</table></body></html>")
 
-def save_all_lime_results(explanations, age_scaler, bmi_scaler, gender_encoder, side_encoder, presence_encoder, base_dir="lime_results"):
+
+def plot_relative_importance(feature_importance, feature_contributions):
+    """
+    Feature Importance를 바 그래프로 시각화하며, Class 0 / Class 1 기여 여부에 따라 색상을 다르게 적용.
+    """
+    features, importance = list(feature_importance.keys()), list(feature_importance.values())
+
+    # **각 Feature가 Class 0인지 Class 1에 기여하는지 확인 (정확한 매칭)**
+    def get_contribution_label(feature):
+        for key in feature_contributions:
+            if feature.startswith(key) or key.startswith(feature):
+                return feature_contributions[key]
+        return "Class 0 [Surgery not required (No)]"  # 기본값: Class 0
+
+    colors = ['blue' if "Class 0" in get_contribution_label(feat) else 'orange' for feat in features]
+
+    fig, ax = plt.subplots(figsize=(5, 3))
+    bars = ax.barh(features, importance, color=colors)
+    ax.set_xlabel("Relative Importance")
+    ax.set_title("Feature Importance (Class 0 = Blue, Class 1 = Orange)", fontsize=12, fontweight='bold')
+
+    # **막대 위에 중요도 값 추가**
+    for bar, value, color in zip(bars, importance, colors):
+        width = bar.get_width()
+        ax.text(width + 0.01, bar.get_y() + bar.get_height() / 2, f"{value:.4f}",
+                ha='left', fontsize=9, fontweight='bold', color=color)
+
+    buf = BytesIO()
+    plt.savefig(buf, format="png", bbox_inches='tight')
+    buf.seek(0)
+    encoded_image = base64.b64encode(buf.getvalue()).decode("utf-8")
+    plt.close(fig)
+
+    return encoded_image
+
+
+def compute_relative_importance(transformed_explanation):
+    """
+    clinic_inputs 내부 feature들의 상대적 중요도를 정규화하여 계산.
+    """
+    clinic_features = ['age', 'bmi', 'gender', 'side', 'presence']
+    feature_weights = {feat: 0 for feat in clinic_features}
+
+    for feature, _, _, weight in transformed_explanation:
+        for key in clinic_features:
+            if key in feature:
+                feature_weights[key] += abs(weight)
+
+    total_weight = sum(feature_weights.values())
+    if total_weight > 0:
+        feature_importance = {key: feature_weights[key] / total_weight for key in clinic_features}
+    else:
+        feature_importance = {key: 0 for key in clinic_features}
+
+    return feature_importance
+
+
+def save_all_lime_results(explanations, age_scaler, bmi_scaler, gender_encoder, side_encoder, presence_encoder,
+                          base_dir="lime_results"):
     """
     모든 LIME 결과를 클래스별 디렉토리에 HTML 파일로 저장.
 
@@ -231,7 +325,7 @@ def predict_fn_for_lime(data, preap_input, prelat_input, combinedModel, batch_si
 
     return np.array(probs_list)
 
-    #원본 버젼
+    # 원본 버젼
     # batch_size = clinic_input.size(0) # LIME이 변형한 클리닉 데이터와 batch를 맞춘다.
 
     # preap_input = preap_input.expand(batch_size, -1, -1, -1)  # 동일한 값을 배치 크기만큼 확장
@@ -244,7 +338,7 @@ def predict_fn_for_lime(data, preap_input, prelat_input, combinedModel, batch_si
     # return probs
 
 
-def explain_instance(testloader, explainer, combinedModel, device='cuda', max_samples= 20):
+def explain_instance(testloader, explainer, combinedModel, device='cuda', max_samples=20):
     """
        배치 데이터에서 각 샘플에 대해 LIME 설명을 생성.
 
@@ -301,7 +395,7 @@ def explain_instance(testloader, explainer, combinedModel, device='cuda', max_sa
             )
             explanations.append((id, label, explanation))
             samples_processed += 1
-            
+
         # 배치 루프 탈출 조건
         if samples_processed >= max_samples:
             break

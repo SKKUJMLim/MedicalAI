@@ -207,7 +207,7 @@ if __name__ == '__main__':
     )
 
     # 설명 생성
-    explanations = lime.explain_instance(test_dataloader, explainer, combined_model, device='cuda', max_samples=5000)
+    explanations = lime.explain_instance(test_dataloader, explainer, combined_model, device='cuda', max_samples=20)
     lime.save_all_lime_results(explanations,
                                age_scaler=age_scaler,
                                bmi_scaler=bmi_scaler,
