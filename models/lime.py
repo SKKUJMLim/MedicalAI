@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import base64
 from io import BytesIO
 
-num_samples = 20  # perturbation 샘플 개수
+num_samples = 5000  # perturbation 샘플 개수
 
 
 def explain_with_original_data_and_ranges(explanation, age_scaler, bmi_scaler, gender_encoder, side_encoder,
