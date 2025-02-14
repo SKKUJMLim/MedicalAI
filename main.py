@@ -8,7 +8,7 @@ import seaborn as sns
 from models import gradcam
 
 from lime.lime_tabular import LimeTabularExplainer
-from models import lime
+from models import lime, shaply_value
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -177,41 +177,80 @@ if __name__ == '__main__':
     # gradcam.save_all_grad_cam_results(grad_cam=grad_cam, image_type='prelat', model=combined_model.model2, testloader=test_dataloader, combinedModel=combined_model)
 
     '''LIME'''
-    training_data = []
-    for _, (_, _, _, clinic_inputs, _) in enumerate(test_dataloader):
-        training_data.append(clinic_inputs.cpu().numpy())
+    # training_data = []
+    # for _, (_, _, _, clinic_inputs, _) in enumerate(test_dataloader):
+    #     training_data.append(clinic_inputs.cpu().numpy())
+    #
+    # training_data = np.vstack(training_data)
+    # age_scaler, bmi_scaler, gender_encoder, side_encoder, presence_encoder = test_dataloader.dataset.get_scaler()
+    #
+    # # 범주형 Feature 인덱스 설정
+    # categorical_features = [2, 3, 4]  # gender(2), side(3), presence(4)
+    #
+    # training_data[:, categorical_features] = training_data[:, categorical_features].astype(int)
+    #
+    # # 범주형 변수의 원래 값 설정 (LabelEncoder 사용)
+    # categorical_names = {
+    #     2: gender_encoder.classes_.tolist(),  # LabelEncoder에서 직접 클래스 목록 가져오기
+    #     3: side_encoder.classes_.tolist(),    # LabelEncoder에서 직접 클래스 목록 가져오기
+    #     4: presence_encoder.classes_.tolist() # LabelEncoder에서 직접 클래스 목록 가져오기
+    # }
+    #
+    # # LimeTabularExplainer 초기화
+    # explainer = LimeTabularExplainer(
+    #     training_data=training_data,
+    #     feature_names=['age', 'bmi', 'gender', 'side', 'presence'],
+    #     class_names=[0, 1],
+    #     categorical_features=categorical_features,  # 범주형 Feature 인덱스 설정
+    #     categorical_names=categorical_names,  # 범주형 변수의 원래 값 설정
+    #     mode="classification"
+    # )
+    #
+    # # 설명 생성
+    # explanations = lime.explain_instance(test_dataloader, explainer, combined_model, device='cuda', max_samples=5000)
+    # lime.save_all_lime_results(explanations,
+    #                            age_scaler=age_scaler,
+    #                            bmi_scaler=bmi_scaler,
+    #                            gender_encoder=gender_encoder,
+    #                            side_encoder=side_encoder,
+    #                            presence_encoder=presence_encoder)
 
-    training_data = np.vstack(training_data)
+    '''Shaply value'''
+    # 정규화 스케일러 가져오기
     age_scaler, bmi_scaler, gender_encoder, side_encoder, presence_encoder = test_dataloader.dataset.get_scaler()
 
-    # 범주형 Feature 인덱스 설정
-    categorical_features = [2, 3, 4]  # gender(2), side(3), presence(4)
+    # Global SHAP 실행 (전체 데이터 설명)
+    shaply_value.explain_global_shap(test_dataloader, combined_model, age_scaler, bmi_scaler, gender_encoder,
+                                     side_encoder,
+                                     presence_encoder, device='cuda')
 
-    training_data[:, categorical_features] = training_data[:, categorical_features].astype(int)
 
-    # 범주형 변수의 원래 값 설정 (LabelEncoder 사용)
-    categorical_names = {
-        2: gender_encoder.classes_.tolist(),  # LabelEncoder에서 직접 클래스 목록 가져오기
-        3: side_encoder.classes_.tolist(),    # LabelEncoder에서 직접 클래스 목록 가져오기
-        4: presence_encoder.classes_.tolist() # LabelEncoder에서 직접 클래스 목록 가져오기
-    }
+    # # 설명할 Feature와 이미지 데이터를 저장할 리스트 초기화
+    # X_test = []         # 설명할 Feature (임상 데이터)
+    # preap_inputs = []   # AP 이미지
+    # prelat_inputs = []  # LAT 이미지
+    #
 
-    # LimeTabularExplainer 초기화
-    explainer = LimeTabularExplainer(
-        training_data=training_data,
-        feature_names=['age', 'bmi', 'gender', 'side', 'presence'],
-        class_names=[0, 1],
-        categorical_features=categorical_features,  # 🚀 범주형 Feature 인덱스 설정
-        categorical_names=categorical_names,  # 🚀 범주형 변수의 원래 값 설정
-        mode="classification"
-    )
+    #
+    # for _, (_, preap_input, prelat_input, clinic_inputs, _) in enumerate(test_dataloader):
+    #     X_test.append(clinic_inputs.cpu().numpy())  # 임상 데이터 저장
+    #     preap_inputs.append(preap_input.cpu().numpy())  # AP 이미지 저장
+    #     prelat_inputs.append(prelat_input.cpu().numpy())  # LAT 이미지 저장
+    #
+    # # 리스트를 numpy 배열로 변환
+    # X_test = np.vstack(X_test)
+    # preap_inputs = np.vstack(preap_inputs)
+    # prelat_inputs = np.vstack(prelat_inputs)
+    #
+    # # 텐서 변환 후 GPU로 이동
+    # preap_inputs = torch.tensor(preap_inputs, dtype=torch.float32).to("cuda")  # (228, C, H, W)
+    # prelat_inputs = torch.tensor(prelat_inputs, dtype=torch.float32).to("cuda")  # (228, C, H, W)
 
-    # 설명 생성
-    explanations = lime.explain_instance(test_dataloader, explainer, combined_model, device='cuda', max_samples=5000)
-    lime.save_all_lime_results(explanations,
-                               age_scaler=age_scaler,
-                               bmi_scaler=bmi_scaler,
-                               gender_encoder=gender_encoder,
-                               side_encoder=side_encoder,
-                               presence_encoder=presence_encoder)
+    # Local SHAP 실행 (샘플별 설명)
+    # shaply_value.explain_instance_with_shap(test_dataloader, combined_model, age_scaler, bmi_scaler, gender_encoder, side_encoder,
+    #                            presence_encoder, device='cuda', max_samples=20)
+
+
+
+
 

@@ -1,56 +1,126 @@
+import torch
 import shap
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import base64
 from io import BytesIO
 
-def compute_shap_values(model, X, feature_names, age_scaler, bmi_scaler):
+
+def explain_global_shap(testloader, combinedModel, age_scaler, bmi_scaler, gender_encoder, side_encoder,
+                        presence_encoder, device="cuda"):
     """
-    모델과 데이터를 기반으로 SHAP 값을 계산하고, 연속형 변수를 원래 값으로 복원.
+    모델이 전체 데이터에 대해 어떤 특성을 중요하게 여기는지 분석하는 Global SHAP 설명 함수.
 
     Args:
-        model: 훈련된 모델
-        X: 예측할 데이터 (정규화된 상태)
-        feature_names: 특성 이름 리스트
-        age_scaler: Age를 복구할 Scaler
-        bmi_scaler: BMI를 복구할 Scaler
+        testloader: 데이터 로더 (torch.utils.data.DataLoader).
+        combinedModel: PyTorch 모델.
+        age_scaler, bmi_scaler: 연속형 변수 복구용 Scaler.
+        gender_encoder, side_encoder, presence_encoder: 범주형 변수 복구용 LabelEncoder.
+        device: 실행할 디바이스.
 
     Returns:
-        SHAP 값이 포함된 DataFrame
+        SHAP Summary Plot을 HTML 파일로 저장.
     """
-    explainer = shap.Explainer(model, X)
-    shap_values = explainer(X)  # SHAP 계산
+    combinedModel.eval()
+    combinedModel.to(device)
 
-    # 원래 값으로 변환할 변수들 (정규화된 값 → 원래 값)
-    transformed_X = X.copy()
-    transformed_X[:, 0] = age_scaler.inverse_transform(X[:, [0]]).flatten()  # Age
-    transformed_X[:, 1] = bmi_scaler.inverse_transform(X[:, [1]]).flatten()  # BMI
+    shap_values_list = []  # 모든 샘플의 SHAP 값을 저장할 리스트
+    X_test = []  # 클리닉 데이터를 저장할 리스트
 
-    # SHAP 값과 함께 원래 데이터를 DataFrame으로 정리
-    shap_df = pd.DataFrame(transformed_X, columns=feature_names)
-    shap_df['SHAP Value'] = np.mean(shap_values.values, axis=0)  # 평균 SHAP 값 추가
+    for batch_idx, (ids, preap_inputs, prelat_inputs, clinic_inputs, labels) in enumerate(testloader):
 
-    return shap_df
+        preap_inputs = preap_inputs.to(device)
+        prelat_inputs = prelat_inputs.to(device)
+        clinic_inputs = clinic_inputs.to(device)
+        labels = labels.to(device)
 
+        for i in range(clinic_inputs.size(0)):
 
-def plot_shap_summary(shap_values, X, feature_names, age_scaler, bmi_scaler):
+            # 현재 샘플 추출
+            preap_input = preap_inputs[i].unsqueeze(0)  # (1, C, H, W)
+            prelat_input = prelat_inputs[i].unsqueeze(0)  # (1, C, H, W)
+            clinic_input = clinic_inputs[i].cpu().numpy().reshape(1, -1)  # (1, feature_dim).
+
+            X_test.append(clinic_input)  # 원본 데이터 저장
+
+            # SHAP 예측 함수
+            predict_fn = lambda x: shap_predict_fn(x, preap_input, prelat_input, combinedModel, device)
+
+            # SHAP Explainer 생성 및 계산
+            explainer = shap.Explainer(predict_fn, clinic_input)
+            shap_values = explainer(clinic_input)
+
+            print("shap_values == ", shap_values.shape) #  (1, 5, 2) -> [샘플 개수, 특성개수, 클래스 개수]
+            shap_values_class_0 = shap_values.values[..., 0]  # (1, 5, 2) → (1, 5)
+            shap_values_class_1 = shap_values.values[..., 1]  # (1, 5, 2) → (1, 5)
+
+            # 개별 샘플의 SHAP 값을 저장
+            shap_values_list.append(shap_values.values)  # (1, num_features) 형태
+
+    # 모든 샘플의 SHAP 값을 numpy 배열로 변환
+    shap_values_all = np.vstack(shap_values_list)  # (num_samples, num_features)
+    global_shap_values = np.mean(shap_values_all, axis=0)  # (num_features,)
+
+    # Global SHAP Summary Plot 저장
+    X_test = np.vstack(X_test)  # (전체 샘플 수, feature_dim)
+    encoded_shap_image = plot_shap_summary(global_shap_values, X_test, ["age", "bmi", "gender", "side", "presence"])
+
+    # 결과 저장
+    save_shap_html(encoded_shap_image, "shap_global_results.html")
+
+def shap_predict_fn(X, preap_input, prelat_input, model, device="cuda"):
     """
-    SHAP 요약 그래프를 생성하며, 연속형 변수를 원래 값으로 변환.
+    SHAP을 위한 예측 함수 (클리닉 데이터만 사용).
 
     Args:
-        shap_values: SHAP 분석 결과
-        X: 입력 데이터 (정규화된 상태)
-        feature_names: 특성 이름 리스트
-        age_scaler, bmi_scaler: 연속형 변수 복구용 Scaler
+        X: 정규화된 임상 데이터 (numpy 배열) (batch_size, num_features)
+        preap_input: 단일 샘플의 PreAP 입력 텐서 (1, C, H, W)
+        prelat_input: 단일 샘플의 PreLat 입력 텐서 (1, C, H, W)
+        model: 훈련된 PyTorch 모델
+        device: 실행할 디바이스 (기본값="cuda")
 
     Returns:
-        Base64 인코딩된 그래프 이미지 (HTML 삽입 가능)
+        예측 확률값 (numpy 배열)
     """
-    transformed_X = X.copy()
-    transformed_X[:, 0] = age_scaler.inverse_transform(X[:, [0]]).flatten()  # Age
-    transformed_X[:, 1] = bmi_scaler.inverse_transform(X[:, [1]]).flatten()  # BMI
+    model.to(device)
 
-    shap.summary_plot(shap_values, transformed_X, feature_names=feature_names, show=False)
+    # 클리닉 데이터를 pytorch tensor로 변환
+    X_tensor = torch.tensor(X, dtype=torch.float32).to(device)
+
+    print("X_tensor==", X_tensor.shape)         # torch.Size([1, 5])
+    print("preap_input==", preap_input.shape)   # torch.Size([1, 3, 224, 224])
+    print("prelat_input==", prelat_input.shape) # torch.Size([1, 3, 224, 224])
+
+    with torch.no_grad():
+        logits = model(preap_input, prelat_input, X_tensor)  # 이미지 + 클리닉 데이터 입력
+        probs = torch.softmax(logits, dim=1).cpu().numpy()
+
+    return probs
+
+
+def plot_shap_summary(global_shap_values, X, feature_names):
+    """
+    SHAP Summary Plot을 생성하여 저장.
+
+    Args:
+        global_shap_values: SHAP 분석 결과 (Global SHAP 값, (num_features,))
+        X: 입력 데이터 (num_samples, num_features).
+        feature_names: 특성 이름 리스트.
+
+    Returns:
+        Base64 인코딩된 그래프 이미지.
+    """
+    num_samples, num_features = X.shape
+
+    # 🔹 Global SHAP 값을 (1, num_features) → (num_samples, num_features) 형태로 변환
+    shap_values_expanded = np.tile(global_shap_values.reshape(1, -1), (num_samples, 1))
+
+    # 🔹 차원 확인 (디버깅용)
+    print(f"X.shape: {X.shape}, shap_values_expanded.shape: {shap_values_expanded.shape}")
+
+    # 🔹 Summary Plot 생성
+    shap.summary_plot(shap_values_expanded, X, feature_names=feature_names, show=False)
 
     buf = BytesIO()
     plt.savefig(buf, format="png", bbox_inches='tight')
@@ -61,40 +131,18 @@ def plot_shap_summary(shap_values, X, feature_names, age_scaler, bmi_scaler):
     return encoded_image
 
 
-def save_shap_results(model, X, feature_names, age_scaler, bmi_scaler, file_name):
+
+
+def save_shap_html(encoded_shap_image, file_name):
     """
-    SHAP 분석 결과를 HTML 파일로 저장하며, 연속형 변수(Age, BMI)를 원래 값으로 변환.
+    SHAP 결과를 HTML 파일로 저장.
 
     Args:
-        model: 훈련된 모델
-        X: 예측할 데이터 (정규화된 상태)
-        feature_names: 특성 이름 리스트
-        age_scaler, bmi_scaler: 연속형 변수 복구용 Scaler
-        file_name: 저장할 HTML 파일 이름
+        encoded_shap_image: Base64 인코딩된 SHAP 그래프 이미지.
+        file_name: 저장할 HTML 파일 이름.
     """
-    shap_df = compute_shap_values(model, X, feature_names, age_scaler, bmi_scaler)
-    encoded_shap_image = plot_shap_summary(shap_df['SHAP Value'].values, X, feature_names, age_scaler, bmi_scaler)
-
     with open(file_name, "w") as f:
         f.write("<html><body><h2>SHAP Feature Importance</h2>\n")
-
-        # **SHAP 요약 그래프 추가**
         f.write("<h3>SHAP Summary Plot</h3>\n")
         f.write(f'<img src="data:image/png;base64,{encoded_shap_image}" alt="SHAP Summary">\n')
-
-        # **SHAP Feature Contributions Table**
-        f.write("<h3>Feature Contributions</h3>\n")
-        f.write("<table border='1'>\n")
-        f.write("<tr><th>Feature</th><th>Original Value</th><th>SHAP Value</th></tr>\n")
-
-        for _, row in shap_df.iterrows():
-            feature_name = row.name
-            original_value = row[feature_name]
-            shap_value = row['SHAP Value']
-            f.write(f"<tr><td>{feature_name}</td><td>{original_value:.2f}</td><td>{shap_value:.6f}</td></tr>\n")
-
-        f.write("</table></body></html>")
-
-
-### 사용예제
-# save_shap_results(trained_model, X_test, ['age', 'bmi', 'gender', 'side', 'presence'], age_scaler, bmi_scaler, "shap_results.html")
+        f.write("</body></html>")
