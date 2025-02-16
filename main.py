@@ -218,11 +218,10 @@ if __name__ == '__main__':
     '''Shaply value'''
     # 정규화 스케일러 가져오기
     age_scaler, bmi_scaler, gender_encoder, side_encoder, presence_encoder = test_dataloader.dataset.get_scaler()
+    feature_names = ["age", "bmi", "gender", "side", "presence"]
 
     # Global SHAP 실행 (전체 데이터 설명)
-    shaply_value.explain_global_shap(test_dataloader, combined_model, age_scaler, bmi_scaler, gender_encoder,
-                                     side_encoder,
-                                     presence_encoder, device='cuda')
+    shaply_value.explain_global_shap(test_dataloader, combined_model, device='cuda')
 
 
     # # 설명할 Feature와 이미지 데이터를 저장할 리스트 초기화
