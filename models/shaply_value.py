@@ -62,6 +62,9 @@ def explain_global_shap(testloader, combinedModel, device="cuda"):
 
     feature_names = ["age", "bmi", "gender", "side", "presence"]
 
+    # 클래스 통합 SHAP Bar Plot 생성 [추가!!!!]
+    integrated_summary_plots = plot_shap_summary(shap_values_all, X_test_np, feature_names)
+
     # 클래스별 SHAP Summary Plot 생성
     class_summary_plots = plot_shap_summary_multiclass(shap_values_all, X_test_np, feature_names)
 
@@ -72,7 +75,7 @@ def explain_global_shap(testloader, combinedModel, device="cuda"):
     combined_bar_plot = plot_shap_bar_combined(shap_values_all, feature_names)
 
     # HTML 저장
-    save_shap_html(class_summary_plots, class_bar_plots, combined_bar_plot, "shap_global_results.html")
+    save_shap_html(integrated_summary_plots, class_summary_plots, class_bar_plots, combined_bar_plot, "shap_global_results.html")
 
 def shap_predict_fn(clinic_input, preap_input, prelat_input, model, device="cuda"):
     """
@@ -232,7 +235,7 @@ def plot_shap_bar_multiclass(shap_values, feature_names):
     return encoded_images
 
 
-def save_shap_html(class_summary_plots, class_bar_plots, combined_bar_plot, file_name):
+def save_shap_html(integrated_summary_plots, class_summary_plots, class_bar_plots, combined_bar_plot, file_name):
     """
     SHAP 결과를 HTML 파일로 저장.
 
@@ -246,6 +249,10 @@ def save_shap_html(class_summary_plots, class_bar_plots, combined_bar_plot, file
 
     with open(file_name, "w") as f:
         f.write("<html><body><h2>SHAP Feature Importance</h2>\n")
+
+        # 클래스 통합 SHAP Summary Plot 추가 [추가!!!!]
+        f.write("<h3>SHAP Summary Plot (All Classes)</h3>\n")
+        f.write(f'<img src="data:image/png;base64,{integrated_summary_plots}" alt="SHAP Summary (All Classes)" style="width:100%;">\n')
 
         # 각 클래스별 SHAP Summary Plot 추가
         for class_idx, summary_plot in enumerate(class_summary_plots):
