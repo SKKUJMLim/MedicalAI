@@ -154,6 +154,8 @@ if __name__ == '__main__':
 
     print(f'Accuracy of the best model on the test images: {100 * correct / total}%')
 
+    run_mine_analysis(combined_model, test_dataloader, device)
+
     '''Confusion Matrix 생성'''
     conf_matrix = confusion_matrix(all_labels, all_preds)
 
