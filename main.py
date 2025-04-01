@@ -13,6 +13,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
+from models.mutual_information import run_mine_analysis
+
+
 
 if __name__ == '__main__':
 
